@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Member Report</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    body { background: #f0f4f8; font-family: 'Poppins', sans-serif; }
+    .form-card { background: #fff; padding: 30px; border-radius: 12px; margin-top: 30px; box-shadow:0 6px 15px rgba(0,0,0,0.1); }
+    .form-title { text-align:center; font-weight:600; font-size:1.6rem; margin-bottom:25px; color:#00368e; }
+    label { font-weight:500; }
+    input:focus, select:focus, textarea:focus { box-shadow:none; border-color:#00368e; }
+    .btn-primary { background:#00368e; border:none; padding:10px 20px; }
+    .btn-primary:hover { background:#001e56; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="form-card">
+<h3 class="form-title">👤 Member Report</h3>
+
+<!-- Member Selection -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label>Select Active Member</label>
+        <input list="memberList" id="member_no" class="form-control" placeholder="Type or select Member No">
+        <datalist id="memberList"></datalist>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-primary" onclick="loadMember()">🔍 View</button>
+    </div>
+</div>
+
+<!-- Member Details Form -->
+<form id="memberForm" action="/update_member_contact" method="POST" style="display:none;">
+    <div class="row g-3">
+
+        <!-- Member No readonly -->
+        <div class="col-md-4">
+            <label>Member No</label>
+            <input type="text" name="member_no" class="form-control" readonly>
+        </div>
+
+        <!-- All other fields editable -->
+        {% set editable_fields = [
+            'member_name_eng','member_name_hin','member_type','opening_date','dob','age','father_name',
+            'gender','marrital_status','religion','caste','loan_taken','medical_insurance',
+            'identity_1','identity_2','include_15h','include_15g','compulsory_deposit_amt',
+            'guarantor_no','guarantor_name','guarantor_type','permanent_address','present_address',
+            'region','circle','division','dc_zone','nominee_name','nominee_relationship',
+            'member_photo_path','member_sign_path','nominee_photo_path','member_adhaar_id',
+            'member_pan_id','member_email','member_mobile_no','creator_remark','created_by','status',
+            'remark','bank_acct_no','bank_ifsc_code','bank_name','bank_branch_address','old_member_no','employee_no'
+        ] %}
+        
+        {% for field in editable_fields %}
+        <div class="col-md-4">
+            <label>{{ field.replace('_',' ').title() }}</label>
+            {% if 'address' in field or 'remark' in field or 'photo' in field %}
+            <textarea name="{{ field }}" class="form-control" rows="2"></textarea>
+            {% else %}
+            <input type="text" name="{{ field }}" class="form-control">
+            {% endif %}
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <div class="text-center mt-4">
+        <button type="submit" class="btn btn-primary">💾 Update Member</button>
+    </div>
+</form>
+</div>
+</div>
+
+<script>
+// Load active members
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("/get_active_members")
+        .then(res => res.json())
+        .then(data => {
+            const list = document.getElementById("memberList");
+            data.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m.member_no;
+                opt.text = `${m.member_no} - ${m.member_name_eng}`;
+                list.appendChild(opt);
+            });
+        });
+});
+
+// Fetch member details dynamically
+function loadMember() {
+    const memberNo = document.getElementById("member_no").value.trim();
+    if (!memberNo) {
+        alert("Please select a member number!");
+        return;
+    }
+
+    fetch(`/get_member_full/${memberNo}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            document.getElementById("memberForm").style.display = "block";
+
+            for (let key in data) {
+                const el = document.querySelector(`[name='${key}']`);
+                if (el) el.value = data[key] || "";
+            }
+        })
+        .catch(err => {
+            alert("Error loading member data: " + err);
+        });
+}
+</script>
+
+</body>
+</html>
+{% endblock %}

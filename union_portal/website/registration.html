@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Membership Registration</title>
+
+<style>
+
+body{
+font-family:Arial, sans-serif;
+background:#fff5eb;
+margin:0;
+}
+
+/* HEADER */
+
+.header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:12px 40px;
+background:#ff7a00;
+color:white;
+}
+
+.logo-area{
+display:flex;
+align-items:center;
+gap:10px;
+}
+
+.logo-area img{
+width:55px;
+}
+
+nav a{
+color:white;
+text-decoration:none;
+margin:0 12px;
+font-weight:bold;
+}
+
+/* container */
+
+.container{
+max-width:900px;
+margin:30px auto;
+background:white;
+padding:35px;
+border-radius:12px;
+box-shadow:0 10px 25px rgba(0,0,0,0.08);
+}
+
+/* headings */
+
+h1{
+text-align:center;
+color:#ff7a00;
+margin-bottom:5px;
+}
+
+h2{
+text-align:center;
+margin-top:15px;
+}
+
+p{
+text-align:center;
+margin-top:3px;
+color:#555;
+}
+
+/* section */
+
+.section{
+margin-top:30px;
+font-size:18px;
+font-weight:bold;
+color:#333;
+border-bottom:2px solid #ff7a00;
+padding-bottom:6px;
+}
+
+/* form grid */
+
+.form-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:18px;
+margin-top:15px;
+}
+
+.form-group{
+display:flex;
+flex-direction:column;
+}
+
+.form-group.full{
+grid-column:1/3;
+}
+
+label{
+font-size:14px;
+margin-bottom:4px;
+}
+
+input,select{
+padding:10px;
+border:1px solid #ccc;
+border-radius:6px;
+font-size:14px;
+}
+
+/* amount */
+
+.amount{
+font-size:24px;
+color:#ff7a00;
+font-weight:bold;
+text-align:center;
+margin-top:10px;
+}
+
+/* button */
+
+button{
+background:#ff7a00;
+color:white;
+padding:14px;
+border:none;
+width:100%;
+font-size:16px;
+border-radius:8px;
+cursor:pointer;
+margin-top:20px;
+}
+
+button:hover{
+background:#e66900;
+}
+
+/* mobile */
+
+@media(max-width:700px){
+
+.form-grid{
+grid-template-columns:1fr;
+}
+
+.form-group.full{
+grid-column:1;
+}
+
+.container{
+padding:20px;
+}
+
+.header{
+flex-direction:column;
+gap:10px;
+}
+
+}
+.logo-area{
+display:flex;
+align-items:center;
+gap:12px;
+}
+
+.logo-area img{
+height:65px;
+width:auto;
+background:white;
+padding:4px;
+border-radius:50%;
+}
+
+/* MOBILE RESPONSIVE */
+
+@media (max-width:768px){
+
+.header{
+flex-direction:column;
+align-items:center;
+text-align:center;
+padding:15px;
+}
+
+nav{
+display:flex;
+flex-wrap:wrap;
+justify-content:center;
+gap:8px;
+margin-top:10px;
+}
+
+nav a{
+margin:4px 6px;
+font-size:14px;
+}
+
+.container{
+margin:15px;
+padding:20px;
+}
+
+h1{
+font-size:22px;
+}
+
+h2{
+font-size:18px;
+}
+
+p{
+font-size:14px;
+}
+
+.form-grid{
+grid-template-columns:1fr;
+gap:14px;
+}
+
+.form-group.full{
+grid-column:1;
+}
+
+input,select{
+font-size:16px;
+padding:12px;
+}
+
+button{
+font-size:17px;
+padding:15px;
+}
+
+.amount{
+font-size:26px;
+}
+
+#qrcode canvas{
+width:220px !important;
+height:220px !important;
+}
+
+.logo-area img{
+height:55px;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+
+<!-- HEADER -->
+
+<header class="header">
+
+<div class="logo-area">
+
+<img src="images/logo.png">
+
+<div>
+<strong>म.प्र.वि.मं. तकनीकी कर्मचारी संघ</strong><br>
+<span style="font-size:12px;">श्रमेव जयते</span>
+</div>
+
+</div>
+
+<nav>
+
+<a href="index.html">Home</a>
+<a href="about.html">About</a>
+<a href="gallery.html">Gallery</a>
+<a href="contact.html">Contact</a>
+<a href="registration.html" class="register-btn">Registration</a>
+<a href="donation.html" class="donation-btn">Donation</a>
+
+</nav>
+
+</header>
+
+
+
+<div class="container">
+
+<h1>म.प्र.वि.मं. तकनीकी कर्मचारी संघ</h1>
+<h3 style="text-align:center;">M.P.E.B Takneeki Karmachari Sangh</h3>
+<p>मुख्य कार्यालय: एम-11, विद्युत नगर, रामपुर, जबलपुर – 482008 (म.प्र.)</p>
+
+<h2>संगठन सदस्यता पंजीकरण</h2>
+<form action="https://api.web3forms.com/submit" method="POST">
+
+<input type="hidden" name="access_key" value="ce2e7089-54a4-45dc-90e9-915f2dbf3c85">
+<input type="hidden" name="subject" value="New Membership Registration">
+<input type="hidden" name="from_name" value="Union Membership Form">
+
+<div class="section">व्यक्तिगत जानकारी</div>
+
+<div class="form-grid">
+
+<div class="form-group">
+<label>पूरा नाम</label>
+<input type="text" name="name">
+</div>
+
+<div class="form-group">
+<label>पिता का नाम</label>
+<input type="text" name="father_name">
+</div>
+
+<div class="form-group">
+<label>ईमेल</label>
+<input type="email" name="email">
+</div>
+
+<div class="form-group">
+<label>मोबाइल नंबर</label>
+<input type="text" name="mobile">
+</div>
+
+<div class="form-group">
+<label>जन्म तिथि</label>
+<input type="date" name="dob">
+</div>
+
+<div class="form-group">
+<label>जिला</label>
+
+<select name="district">
+<option value="">जिला चयन करें</option>
+
+<option>Agar Malwa</option>
+<option>Alirajpur</option>
+<option>Anuppur</option>
+<option>Ashoknagar</option>
+<option>Balaghat</option>
+<option>Barwani</option>
+<option>Betul</option>
+<option>Bhind</option>
+<option>Bhopal</option>
+<option>Burhanpur</option>
+<option>Chhatarpur</option>
+<option>Chhindwara</option>
+<option>Damoh</option>
+<option>Datia</option>
+<option>Dewas</option>
+<option>Dhar</option>
+<option>Dindori</option>
+<option>Guna</option>
+<option>Gwalior</option>
+<option>Harda</option>
+<option>Hoshangabad</option>
+<option>Indore</option>
+<option>Jabalpur</option>
+<option>Jhabua</option>
+<option>Katni</option>
+<option>Khandwa</option>
+<option>Khargone</option>
+<option>Mandla</option>
+<option>Mandsaur</option>
+<option>Morena</option>
+<option>Narsinghpur</option>
+<option>Neemuch</option>
+<option>Panna</option>
+<option>Raisen</option>
+<option>Rajgarh</option>
+<option>Ratlam</option>
+<option>Rewa</option>
+<option>Sagar</option>
+<option>Satna</option>
+<option>Sehore</option>
+<option>Seoni</option>
+<option>Shahdol</option>
+<option>Shajapur</option>
+<option>Sheopur</option>
+<option>Shivpuri</option>
+<option>Sidhi</option>
+<option>Singrauli</option>
+<option>Tikamgarh</option>
+<option>Ujjain</option>
+<option>Umaria</option>
+<option>Vidisha</option>
+
+</select>
+
+</div>
+
+<div class="form-group">
+<label>कंपनी का नाम</label>
+
+<select name="company_name">
+<option value="">चयन करें</option>
+
+<option>Poory Kshetra V.V. Co. Ltd.</option>
+<option>Madhya Kshetra V.V. Co. Ltd.</option>
+<option>Paschim Kshetra V.V. Co. Ltd.</option>
+<option>Power Generating Company</option>
+<option>Power Transmission Company</option>
+<option>Power Management Company</option>
+
+</select>
+
+</div>
+
+<div class="form-group">
+<label>पद</label>
+
+<select name="position">
+<option value="">चयन करें</option>
+
+<option>CGM/CE/ED</option>
+<option>DY DY CGM/ADD CE</option>
+<option>SE</option>
+<option>DE</option>
+<option>AE</option>
+<option>JE</option>
+<option>OA Gr1/2/3</option>
+<option>ARO</option>
+<option>LA</option>
+<option>TA</option>
+<option>METER READER</option>
+<option>OUTSOURCE</option>
+<option>STENOGRAPHER</option>
+<option>OTHER</option>
+
+</select>
+
+</div>
+
+<div class="form-group">
+<label>कार्यालय का नाम</label>
+<input type="text" name="office_name">
+</div>
+
+<div class="form-group">
+<label>अधिकारी / कर्मचारी वर्ग</label>
+
+<select name="employee_class">
+
+<option>Board Officer/Employee</option>
+<option>Company Officer/Employee</option>
+<option>Contract Officer/Employee</option>
+<option>Retirement Officer/Employee</option>
+<option>Outsourced</option>
+
+</select>
+
+</div>
+
+<div class="form-group">
+<label>पिन कोड</label>
+<input type="text" name="pincode">
+</div>
+
+<div class="form-group full">
+<label>सदस्यता शुल्क प्रकार</label>
+
+<select name="membership_fee" id="membership_fee" onchange="updateAmount()">
+
+<option value="">चयन करें</option>
+
+<option value="2100">Life Guardian Membership - ₹2100</option>
+<option value="500">1st & 2nd Grade Officers - ₹500</option>
+<option value="300">3rd & 4th Class Employees - ₹300</option>
+<option value="150">Outsourced / Contractual - ₹150</option>
+
+</select>
+
+</div>
+
+</div>
+
+<div class="section">देय राशि (Payable Amount)</div>
+
+<div class="amount" id="amountDisplay">₹0</div>
+
+<div id="qrcode" style="margin-top:15px;text-align:center;"></div>
+
+<p>QR स्कैन करके ऊपर दिखाई गई राशि का भुगतान करें</p>
+
+
+<div class="section">भुगतान विवरण</div>
+
+<div class="form-grid">
+
+<div class="form-group full">
+<label>UTR नंबर</label>
+<input type="text" name="utr_number">
+</div>
+
+</div>
+
+<button>पंजीकरण सबमिट करें</button>
+</form>
+
+</div>
+
+</body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+
+function updateAmount(){
+
+let fee=document.getElementById("membership_fee").value
+
+let display=document.getElementById("amountDisplay")
+
+display.innerHTML=fee ? "₹"+fee : "₹0"
+
+if(fee){
+
+let upi="9977885049@ibl"
+let name="Union Membership"
+
+let upiLink=`upi://pay?pa=${upi}&pn=${name}&am=${fee}&cu=INR`
+
+document.getElementById("qrcode").innerHTML=""
+
+new QRCode(document.getElementById("qrcode"),{
+text:upiLink,
+width:200,
+height:200
+})
+
+}
+
+}
+
+</script>
+</html>

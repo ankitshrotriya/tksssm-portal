@@ -1,0 +1,524 @@
+﻿<!DOCTYPE html>
+
+{% extends "base.html" %}
+{% block content %}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Member Registration Form</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- jQuery FIRST -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<style>
+    body {
+        background: #f0f4f8;
+        font-family: 'Poppins', sans-serif;
+    }
+    .form-card {
+        background: #fff;
+        padding: 30px;
+        border-radius: 12px;
+        margin-top: 30px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    }
+    .form-title {
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.6rem;
+        margin-bottom: 25px;
+        color: #00368e;
+    }
+    label {
+        font-weight: 500;
+    }
+    input:focus, select:focus, textarea:focus {
+        box-shadow: none;
+        border-color: #00368e;
+    }
+    .btn-primary {
+        background: #00368e;
+        border: none;
+        padding: 10px 20px;
+    }
+    .btn-primary:hover {
+        background: #001e56;
+    }
+	
+	
+	/* Select2 ko Bootstrap form-select jaisa bana do */
+.select2-container .select2-selection--single {
+    height: 38px !important;
+    padding: 5px 10px;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.375rem !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 26px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px !important;
+}
+
+.select2-container {
+    width: 100% !important;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="form-card">
+        <h3 class="form-title">🏦 Member Registration Form</h3>
+
+        <form action="/member/save" method="POST" enctype="multipart/form-data">
+
+            <div class="row g-3">
+
+                <!-- Basic Info -->
+                <div class="col-md-4">
+                    <label>Member No *</label>
+                    <input type="text" name="member_no" class="form-control" value="{{ new_member_no }}" readonly required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Member Name (English) *</label>
+                    <input type="text" name="member_name_eng" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Member Name (Hindi) *</label>
+                    <input type="text" name="member_name_hin" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Member Type *</label>
+                    <select name="member_type" class="form-select" required>
+                        <option value="Member">Member</option>
+                        <option value="Initial">Initial</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Opening Date *</label>
+                    <input type="date" name="opening_date" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>DOB</label>
+                    <input type="date" id="dob" name="dob" class="form-control" onchange="calculateAge()" required>
+                </div>
+
+                <div class="col-md-2">
+                    <label>Age</label>
+                    <input type="number" id="age" name="age" class="form-control" readonly>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Father Name</label>
+                    <input type="text" name="father_name" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Gender</label>
+                    <select name="gender" class="form-select" required>
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Marital Status</label>
+                    <select name="marrital_status" class="form-select" required>
+                        <option>Single</option>
+                        <option>Married</option>
+                        <option>Divorced</option>
+                    </select>
+                </div>
+
+                <!-- Personal Info -->
+                <div class="col-md-4">
+				<label>Religion *</label>
+				<select name="religion" class="form-select" required>
+					<option value="">-- Select Religion --</option>
+					<option value="Hindu">Hindu</option>
+					<option value="Muslim">Muslim</option>
+					<option value="Christian">Christian</option>
+					<option value="Sikh">Sikh</option>
+					<option value="Buddhist">Buddhist</option>
+					<option value="Jain">Jain</option>
+					<option value="Parsi (Zoroastrian)">Parsi (Zoroastrian)</option>
+					<option value="Other">Other</option>
+					
+				</select>
+			</div>
+
+
+                <div class="col-md-4">
+                    <label>Caste</label>
+                    <select  name="caste" class="form-select" required>
+					<option value="">-- Select caste --</option>
+					<option value="Hindu">General</option>
+					<option value="Muslim">OBC</option>
+					<option value="Christian">SC</option>
+					<option value="Sikh">ST</option>
+					</Select>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Close Status</label>
+                    <input type="text" name="close_status" class="form-control" value="Operational" readonly>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Loan Taken</label>
+                    <input type="text" name="loan_taken" class="form-control" value="No" readonly>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Medical Insurance</label>
+                    <input type="text" name="medical_insurance" class="form-control" value="N/A" readonly>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Identity 1</label>
+                    <input type="text" name="identity_1" class="form-control">
+                </div>
+
+                <div class="col-md-4">
+                    <label>Identity 2</label>
+                    <input type="text" name="identity_2" class="form-control">
+                </div>
+
+                <div class="col-md-4">
+                    <label>Include 15H</label>
+                    <select name="include_15h" class="form-select">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Include 15G</label>
+                    <select name="include_15g" class="form-select">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Compulsory Deposit Amount</label>
+                    <input type="text" name="compulsory_deposit_amt" class="form-control" required>
+                </div>
+
+                <!-- Guarantor -->
+                <div class="col-md-4">
+                    <label>Guarantor No</label>
+                    <select name="guarantor_no" id="guarantor_no" class="form-select" >
+                        <option value="">Select Guarantor</option>
+                        {% for g in guarantors %}
+                            <option value="{{ g[0] }}" data-name="{{ g[1] }}" data-type="Member">{{ g[0] }} - {{ g[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Address -->
+                <div class="col-md-6">
+                    <label>Permanent Address</label>
+                    <textarea name="permanent_address" class="form-control" rows="2"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                    <label>Present Address</label>
+                    <textarea name="present_address" class="form-control" rows="2"></textarea>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Region</label>
+                    <input type="text" name="region" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Circle</label>
+                    <input type="text" name="circle" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Division</label>
+                    <input type="text" name="division" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>DC Zone</label>
+                    <input type="text" name="dc_zone" class="form-control" required>
+                </div>
+
+                <!-- Nominee -->
+                <div class="col-md-4">
+                    <label>Nominee Name</label>
+                    <input type="text" name="nominee_name" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+    <label>Nominee Relationship *</label>
+    <select name="nominee_relationship" class="form-select" required>
+        <option value="">-- Select Relationship --</option>
+        <option value="Self">Self</option>
+        <option value="Father">Father</option>
+        <option value="Mother">Mother</option>
+        <option value="Spouse">Spouse (Husband/Wife)</option>
+        <option value="Son">Son</option>
+        <option value="Daughter">Daughter</option>
+        <option value="Brother">Brother</option>
+        <option value="Sister">Sister</option>
+        <option value="Grand Father">Grand Father</option>
+        <option value="Grand Mother">Grand Mother</option>
+        <option value="Grand Son">Grand Son</option>
+        <option value="Grand Daughter">Grand Daughter</option>
+        <option value="Father-in-Law">Father-in-Law</option>
+        <option value="Mother-in-Law">Mother-in-Law</option>
+        <option value="Son-in-Law">Son-in-Law</option>
+        <option value="Daughter-in-Law">Daughter-in-Law</option>
+        <option value="Uncle">Uncle</option>
+        <option value="Aunt">Aunt</option>
+        <option value="Cousin">Cousin</option>
+        <option value="Friend">Friend</option>
+        <option value="Other">Other</option>
+    </select>
+</div>
+
+
+                <!-- Uploads -->
+                <div class="col-md-4">
+                    <label>Member Photo</label>
+                    <input type="file" name="member_photo_path" class="form-control">
+                </div>
+
+                <div class="col-md-4">
+                    <label>Member Signature</label>
+                    <input type="file" name="member_sign_path" class="form-control">
+                </div>
+
+                <div class="col-md-4">
+                    <label>Nominee Photo</label>
+                    <input type="file" name="nominee_photo_path" class="form-control">
+                </div>
+
+                <!-- IDs -->
+                <div class="col-md-4">
+                    <label>Aadhaar ID *</label>
+                    <input type="text" name="member_adhaar_id" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>PAN ID *</label>
+                    <input type="text" name="member_pan_id" class="form-control" required>
+                </div>
+
+                <!-- Contact -->
+                <div class="col-md-4">
+                    <label>Email</label>
+                    <input type="email" name="member_email" class="form-control">
+                </div>
+
+                <div class="col-md-4">
+                    <label>Mobile No</label>
+                    <input type="text" name="member_mobile_no" class="form-control" required>
+                </div>
+
+                <!-- Bank Details -->
+                <div class="col-md-4">
+                    <label>Bank Account No</label>
+                    <input type="text" name="bank_acct_no" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Bank IFSC Code</label>
+                    <input type="text" name="bank_ifsc_code" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label>Bank Name</label>
+                    <input type="text" name="bank_name" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label>Bank Branch Address</label>
+                    <textarea name="bank_branch_address" class="form-control" rows="2"></textarea required>
+                </div>
+
+                <div class="col-md-6">
+                    <label>Employee No</label>
+                    <input type="text" name="employee_no" class="form-control" required>
+                </div>
+
+            </div>
+
+            <input type="hidden" name="status" value="Active">
+
+            <div class="text-center mt-4">
+                <button class="btn btn-primary">Submit</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- 🔥 ADD THIS TOAST BOX (NO DESIGN CHANGES) -->
+<div id="toastBox"
+     style="
+        position:fixed; top:20px; right:20px;
+        z-index:9999; display:none;
+        padding:12px 20px; border-radius:8px;
+        color:white; font-weight:600;
+        box-shadow:0 0 10px rgba(0,0,0,0.2);">
+</div>
+
+<script>
+function showToast(msg, type="success") {
+    const box = document.getElementById("toastBox");
+    box.style.display = "block";
+    box.innerText = msg;
+
+    if(type === "success"){
+        box.style.background = "#28a745";
+    } else {
+        box.style.background = "#dc3545";
+    }
+
+    setTimeout(() => { box.style.display = "none"; }, 3000);
+}
+</script>
+
+
+
+<script>
+function calculateAge() {
+    const dob = document.getElementById('dob').value;
+    if (dob) {
+        const dobDate = new Date(dob);
+        const diff = Date.now() - dobDate.getTime();
+        const age = new Date(diff).getUTCFullYear() - 1970;
+        document.getElementById('age').value = age;
+    }
+}
+
+// 🔹 Update Member No when Member Type changes
+document.addEventListener('DOMContentLoaded', function() {
+    const memberTypeSelect = document.querySelector('select[name="member_type"]');
+    const memberNoInput = document.querySelector('input[name="member_no"]');
+
+    function updateMemberNo() {
+        let base = memberNoInput.value.replace(/[AB]$/, ''); 
+        if (memberTypeSelect.value === 'Member') {
+            memberNoInput.value = base + 'A';
+        } else if (memberTypeSelect.value === 'Initial') {
+            memberNoInput.value = base + 'B';
+        }
+    }
+
+    memberTypeSelect.addEventListener('change', updateMemberNo);
+
+    updateMemberNo();
+});
+</script>
+
+
+<!-- 🔥 Jinja popup triggers (SUCCESS / ERROR) -->
+{% if request.args.get('msg') == 'success' %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    showToast("✔ Member Registered Successfully!", "success");
+});
+</script>
+{% endif %}
+
+{% if request.args.get('msg') == 'error' %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    showToast("❌ Something went wrong!", "error");
+});
+</script>
+{% endif %}
+
+
+
+<!-- Center Toast -->
+<div id="toastBox" style="
+    position: fixed;
+    top: 50%; 
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    display: none;
+    padding: 20px 30px;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.2rem;
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    min-width: 250px;
+"></div>
+
+<script>
+// 🔹 Show toast function
+function showToast(msg, type="success") {
+    const box = document.getElementById("toastBox");
+    box.innerText = msg;
+
+    // Set background color based on type
+    box.style.background = (type === "success") ? "#28a745" : "#dc3545";
+
+    // Show toast
+    box.style.display = "block";
+    box.style.opacity = "1";
+    box.style.transition = "opacity 0.5s ease";
+
+    // Hide after 5 seconds
+    setTimeout(() => {
+        box.style.opacity = "0";
+        setTimeout(() => { 
+            box.style.display = "none"; 
+        }, 500); // matches the fade duration
+    }, 5000); // 5 seconds
+}
+
+// 🔹 Example: show success on form submit
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[action="/member/save"]');
+    if(form){
+        form.addEventListener('submit', function(e) {
+            // e.preventDefault(); // Uncomment to test without actual submission
+            showToast("✔ Member Registered Successfully!", "success");
+        });
+    }
+});
+</script>
+
+
+<script>
+$(function() {
+    $('#guarantor_no').select2({
+        placeholder: "Search guarantor...",
+        allowClear: true
+    });
+});
+</script>
+
+
+
+</body>
+</html>
+{% endblock %}

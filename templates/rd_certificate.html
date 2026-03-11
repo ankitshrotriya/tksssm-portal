@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="text-align:center;">आवर्ती जमा की पावती (RD Certificate)</h2>
+
+<div class="card">
+    <div style="display:flex; gap:20px; margin-bottom:20px;">
+        <div style="flex:1;">
+            <label>सदस्य क्रमांक (Member No.):</label><br>
+            <select id="memberSelect" class="input-field" style="width:100%; padding:8px;">
+                <option value="">-- Select Member --</option>
+            </select>
+        </div>
+
+        <div style="flex:1;">
+            <label>आरडी क्रमांक (RD Account No.):</label><br>
+            <select id="rdSelect" class="input-field" style="width:100%; padding:8px;">
+                <option value="">-- Select RD --</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="certificate" style="display:none; margin-top:30px; padding:30px; border:1px solid #ccc; background:white; line-height:1.8;">
+        <div style="text-align:center; font-weight:bold;">
+            पंजीयन क्रमांक AR/IDR/860/ दिनांक 11/09/87<br>
+            आवर्ती जमा की पावती (हस्तांतरित नहीं की जा सकती)
+        </div>
+
+        <br>
+        <p>रसीद नं.: __________ &nbsp;&nbsp; ले.फो.: __________ &nbsp;&nbsp; कंप्यूटर नं.: __________</p>
+        <p>वाउचर नं.: __________ &nbsp;&nbsp; दिनांक: __________</p>
+
+        <p>यह प्रमाणित किया जाता है कि <b><span id="memberName"></span></b>
+        (सदस्यता क्रमांक : <b><span id="memberNo"></span></b>) कि आवर्ती जमा मासिक किस्त ₹
+        <b><span id="rdAmount"></span></b>, <b><span id="rdRate"></span>%</b> की ब्याज दर से दिनांक:
+        <b><span id="startDate"></span></b> से <b><span id="endDate"></span></b> की अवधि के लिए,
+        "तकनिकी कर्मचारी सहकारी साख संस्था मर्यादित, इंदौर" के साथ प्रस्तुत दस्तावेज के आधार पर संस्था के नियमों और शर्तों के तहत प्रारम्भ की जाती है।</p>
+
+        <p><b>नोट:</b> संस्था की नियमों का पालन न करने या प्रस्तुत दस्तावेज मे बदलाव की स्थिति मे आपकी आवर्ती जमा स्वतः निरस्त की जा सकेगी।
+        आवर्ती जमा हस्तांतरित नहीं की जा सकती।</p>
+
+        <div style="margin-top:40px; display:flex; justify-content:space-between; text-align:center;">
+            <div>प्रबंधक<br>मुहर एवं हस्ताक्षर</div>
+            <div>उपाध्यक्ष<br>मुहर एवं हस्ताक्षर</div>
+            <div>संचालक<br>मुहर एवं हस्ताक्षर</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load active members
+window.onload = function() {
+    fetch('/get_active_members')
+    .then(res => res.json())
+    .then(data => {
+        let memberSelect = document.getElementById('memberSelect');
+        data.forEach(m => {
+            let opt = document.createElement('option');
+            opt.value = m.member_no;
+            opt.text = m.member_no + ' - ' + m.member_name_eng;
+            memberSelect.add(opt);
+        });
+    });
+};
+
+// Load RD list for selected member
+document.getElementById('memberSelect').addEventListener('change', function() {
+    let memberNo = this.value;
+    document.getElementById('rdSelect').innerHTML = '<option>-- Select RD --</option>';
+    if(memberNo){
+        fetch('/get_rd_by_member/' + memberNo)
+        .then(res => res.json())
+        .then(data => {
+            let rdSelect = document.getElementById('rdSelect');
+            data.forEach(rd => {
+                let opt = document.createElement('option');
+                opt.value = rd.rd_account_no;
+                opt.text = rd.rd_account_no;
+                rdSelect.add(opt);
+            });
+        });
+    }
+});
+
+// Load certificate data when RD selected
+document.getElementById('rdSelect').addEventListener('change', function() {
+    let rdNo = this.value;
+    if(rdNo){
+        fetch('/get_rd_details_full/' + rdNo)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('certificate').style.display = 'block';
+            document.getElementById('memberName').innerText = data.member_name;
+            document.getElementById('memberNo').innerText = data.member_no;
+            document.getElementById('rdAmount').innerText = data.monthly_deposit;
+            document.getElementById('rdRate').innerText = data.interest_rate;
+            document.getElementById('startDate').innerText = data.start_date;
+            document.getElementById('endDate').innerText = data.maturity_date;
+        });
+    }
+});
+</script>
+{% endblock %}

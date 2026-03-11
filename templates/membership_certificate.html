@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="text-align:center;">सदस्यता प्रमाणपत्र (Membership Certificate)</h2>
+
+<div class="card">
+    <div style="margin-bottom:20px;">
+        <label>सदस्य क्रमांक (Member No.):</label><br>
+        <select id="memberSelect" class="input-field" style="width:100%; padding:8px;">
+            <option value="">-- Select Member --</option>
+            {% for m in members %}
+                <option value="{{ m[0] }}">{{ m[0] }} - {{ m[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div id="certificate" style="display:none; margin-top:30px; padding:30px; border:1px solid #ccc; background:white; line-height:1.8;">
+        <div style="text-align:center; font-weight:bold;">
+            पंजीयन क्रमांक AR/IDR/860/ दिनांक 11/09/87
+            <br>सदस्यता प्रमाणपत्र
+        </div>
+
+        <br>
+        <p>यह प्रमाणित किया जाता है कि <b><span id="memberName"></span></b> 
+        (सदस्यता क्रमांक : <b><span id="memberNo"></span></b>)
+        कि सदस्यता "तकनिकी कर्मचारी सहकारी साख संस्था मर्यादित, इंदौर" के साथ दिनांक 
+        <b><span id="openingDate"></span></b> से प्रस्तुत दस्तावेज के आधार पर संस्था के नियमों और शर्तों के तहत प्रारम्भ की जाती है।</p>
+
+        <p><b>नोट:</b><br>
+        संस्था की नियमों का पालन न करने या प्रस्तुत दस्तावेज मे बदलाव की स्थिति मे आपकी सदस्यता स्वतः निरस्त की जा सकेगी।<br>
+        संस्था की सदस्यता हस्तांतरित नहीं की जा सकती।</p>
+
+        <div style="margin-top:40px; display:flex; justify-content:space-between; text-align:center;">
+            <div>प्रबंधक<br>मुहर एवं हस्ताक्षर</div>
+            <div>उपाध्यक्ष<br>मुहर एवं हस्ताक्षर</div>
+            <div>संचालक<br>मुहर एवं हस्ताक्षर</div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('memberSelect').addEventListener('change', function() {
+    const memberNo = this.value;
+    if (memberNo) {
+        fetch('/get_member_details/' + memberNo)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('certificate').style.display = 'block';
+            document.getElementById('memberName').innerText = data.member_name_eng;
+            document.getElementById('memberNo').innerText = data.member_no;
+            document.getElementById('openingDate').innerText = data.opening_date;
+        });
+    } else {
+        document.getElementById('certificate').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

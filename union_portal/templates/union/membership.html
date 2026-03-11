@@ -1,0 +1,367 @@
+﻿{% extends "union/base.html" %}
+{% block content %}
+
+<style>
+.form-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+.section-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1e3a8a;
+    margin: 20px 0 10px;
+}
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+.input-group {
+    display: flex;
+    flex-direction: column;
+}
+.input-group label {
+    font-size: 13px;
+    margin-bottom: 5px;
+    color: #1e3a8a;
+    font-weight: 600;
+}
+.input-group input,
+.input-group select {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+.full-width {
+    grid-column: span 2;
+}
+.payment-box {
+    background: #eef2ff;
+    padding: 25px;
+    border-radius: 20px;
+    text-align: center;
+    margin-top: 20px;
+}
+.amount-display {
+    font-size: 32px;
+    font-weight: bold;
+    color: #16a34a;
+    margin: 10px 0;
+}
+#qrcode {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#qrcode canvas,
+#qrcode img {
+    display: block;
+    margin: 0 auto;
+}
+.submit-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    color: white;
+    border: none;
+    border-radius: 15px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+}
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+    animation: pop 0.3s ease;
+}
+.modal-content button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+}
+@keyframes pop {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+@media (max-width: 768px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .full-width { grid-column: span 1; }
+}
+</style>
+
+<div class="form-card">
+
+<h2 style="text-align:center;color:#1e3a8a;">
+संगठन सदस्यता पंजीकरण
+</h2>
+
+<form method="POST" enctype="multipart/form-data" id="membershipForm">
+
+<div class="section-title">व्यक्तिगत जानकारी</div>
+
+<div class="form-grid">
+
+<div class="input-group">
+<label>पूरा नाम</label>
+<input type="text" name="name" required>
+</div>
+
+<div class="input-group">
+<label>पिता का नाम</label>
+<input type="text" name="father_name" required>
+</div>
+
+<div class="input-group full-width">
+<label>स्थायी पता </label>
+<textarea name="permanent_address" rows="3" required
+style="padding:12px;border-radius:10px;border:1px solid #d1d5db;background:#f9fafb;"></textarea>
+</div>
+
+<div class="input-group">
+<label>ईमेल</label>
+<input type="email" name="email" >
+</div>
+
+<div class="input-group">
+<label>मोबाइल नंबर</label>
+<input type="text" name="mobile" required>
+</div>
+
+<div class="input-group">
+<label>जन्म तिथि</label>
+<input type="date" name="dob" required>
+</div>
+
+<div class="input-group">
+<label>जिला</label>
+<select name="district" required>
+<option value="">जिला चयन करें</option>
+
+<option>Agar Malwa</option>
+<option>Alirajpur</option>
+<option>Anuppur</option>
+<option>Ashoknagar</option>
+<option>Balaghat</option>
+<option>Barwani</option>
+<option>Betul</option>
+<option>Bhind</option>
+<option>Bhopal</option>
+<option>Burhanpur</option>
+<option>Chhatarpur</option>
+<option>Chhindwara</option>
+<option>Damoh</option>
+<option>Datia</option>
+<option>Dewas</option>
+<option>Dhar</option>
+<option>Dindori</option>
+<option>Guna</option>
+<option>Gwalior</option>
+<option>Harda</option>
+<option>Hoshangabad (Narmadapuram)</option>
+<option>Indore</option>
+<option>Jabalpur</option>
+<option>Jhabua</option>
+<option>Katni</option>
+<option>Khandwa</option>
+<option>Khargone</option>
+<option>Mandla</option>
+<option>Mandsaur</option>
+<option>Maihar</option>
+<option>Mauganj</option>
+<option>Morena</option>
+<option>Narsinghpur</option>
+<option>Neemuch</option>
+<option>Niwari</option>
+<option>Pandhurna</option>
+<option>Panna</option>
+<option>Raisen</option>
+<option>Rajgarh</option>
+<option>Ratlam</option>
+<option>Rewa</option>
+<option>Sagar</option>
+<option>Satna</option>
+<option>Sehore</option>
+<option>Seoni</option>
+<option>Shahdol</option>
+<option>Shajapur</option>
+<option>Sheopur</option>
+<option>Shivpuri</option>
+<option>Sidhi</option>
+<option>Singrauli</option>
+<option>Tikamgarh</option>
+<option>Ujjain</option>
+<option>Umaria</option>
+<option>Vidisha</option>
+
+</select>
+
+</div>
+
+<div class="input-group">
+<label>कंपनी का नाम</label>
+<select name="company_name" required>
+<option value="">चयन करें</option>
+<option>Poory Kshetra V.V. Co. Ltd.</option>
+<option>Madhya Kshetra V.V. Co. Ltd.</option>
+<option>Paschim Kshetra V.V. Co. Ltd.</option>
+<option>Power Generating Company</option>
+<option>Power Transmission Company</option>
+<option>Power Management Company</option>
+</select>
+</div>
+
+<div class="input-group">
+<label>पद</label>
+<select name="position" required>
+<option value="">चयन करें</option>
+<option>CGM/CE/ED</option>
+<option>DY DY CGM/ADD CE</option>
+<option>SE</option>
+<option>DE</option>
+<option>AE</option>
+<option>JE</option>
+<option>OA Gr1/2/3</option>
+<option>ARO</option>
+<option>LA</option>
+<option>TA</option>
+<option>TA/PLANT-ASISTANCE/SUPERVISOR</option>
+<option>METER READER</option>
+<option>LA/LM/ALM/LH</option>
+<option>OUTSOURCE</option>
+<option>STENOGRAPHER</option>
+<option>OTHER</option>
+</select>
+</div>
+
+<div class="input-group">
+<label>कार्यालय का नाम</label>
+<input type="text" name="office_name" required>
+</div>
+
+<div class="input-group">
+<label>अधिकारी / कर्मचारी वर्ग</label>
+<select name="class_of_employee" required>
+<option value="">चयन करें</option>
+<option>Board Officer/Employee</option>
+<option>Company Officer/Employee</option>
+<option>Contract Officer/Employee</option>
+<option>Retirement Officer/Employee</option>
+<option>Outsourced</option>
+</select>
+</div>
+
+<div class="input-group">
+<label>पिन कोड</label>
+<input type="text" name="pincode" required>
+</div>
+
+<div class="input-group full-width">
+<label>सदस्यता शुल्क प्रकार</label>
+<select name="membership_fee" id="membership_fee" required onchange="updateAmount()">
+<option value="">चयन करें</option>
+<option value="2100">आजीवन संरक्षक सदस्यता - ₹2100</option>
+<option value="100">मासिक सहयोग राशि - ₹100</option>
+<option value="150">तृतीय व चतुर्थ श्रेणी कर्मचारी - ₹150</option>
+<option value="150">आउटसोर्स / संविदा कर्मचारी - ₹150</option>
+</select>
+</div>
+
+</div>
+
+<div class="payment-box">
+<div>देय राशि (Payable Amount)</div>
+<div class="amount-display" id="amountDisplay">₹0</div>
+<div id="qrcode"></div>
+<p>QR स्कैन करके ऊपर दिखाई गई राशि का भुगतान करें</p>
+</div>
+
+<div class="section-title">भुगतान विवरण</div>
+
+<div class="form-grid">
+<div class="input-group full-width">
+<label>UTR नंबर</label>
+<input type="text" name="utr_number" required>
+</div>
+
+</div>
+
+<button type="submit" class="submit-btn" id="submitBtn">
+पंजीकरण सबमिट करें
+</button>
+
+</form>
+</div>
+
+{% if success == "1" %}
+<div id="successModal" class="modal">
+    <div class="modal-content">
+        <h2 style="color:green;">🎉 पंजीकरण सफल</h2>
+        <p>आपका सदस्यता फॉर्म सफलतापूर्वक जमा हो गया है।</p>
+        <button onclick="closeModal()">ठीक है</button>
+    </div>
+</div>
+{% endif %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+function updateAmount() {
+    var fee = document.getElementById("membership_fee").value;
+    var display = document.getElementById("amountDisplay");
+    display.innerHTML = fee ? "₹" + fee : "₹0";
+
+    if (fee) {
+        var upiID = "9977885049@ibl";
+        var name = "Union Membership";
+        var upiLink = `upi://pay?pa=${upiID}&pn=${name}&am=${fee}&cu=INR`;
+
+        document.getElementById("qrcode").innerHTML = "";
+
+        new QRCode(document.getElementById("qrcode"), {
+            text: upiLink,
+            width: 200,
+            height: 200
+        });
+    }
+}
+
+document.getElementById("membershipForm").addEventListener("submit", function() {
+    document.getElementById("submitBtn").disabled = true;
+});
+
+function closeModal() {
+    document.getElementById("successModal").style.display = "none";
+    window.history.replaceState({}, document.title, "/membership");
+    document.getElementById("membershipForm").reset();
+    document.getElementById("amountDisplay").innerHTML = "₹0";
+    document.getElementById("qrcode").innerHTML = "";
+}
+</script>
+
+{% endblock %}

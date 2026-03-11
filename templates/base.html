@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title or "Bank Dashboard" }}</title>
+
+    <style>
+        /* ========== THEME VARIABLES ========== */
+        :root{
+            --bg:#f6f8fa;
+            --text:#333;
+            --header1:#1D2D50;
+            --header2:#3E8EDE;
+            --sidebar:#1D2D50;
+            --sidebar-hover:rgba(255,255,255,0.08);
+            --dropdown:#273A63;
+        }
+
+        body.dark{
+            --bg:#0f172a;
+            --text:#e5e7eb;
+            --header1:#020617;
+            --header2:#0f172a;
+            --sidebar:#020617;
+            --sidebar-hover:rgba(255,255,255,0.12);
+            --dropdown:#020617;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            transition: .4s;
+        }
+
+        /* ================= HEADER ================= */
+        .header {
+            background: linear-gradient(90deg, var(--header1), var(--header2));
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            font-size: 21px;
+            font-weight: 600;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        /* 🌙 Toggle Button */
+        .theme-toggle{
+            position:absolute;
+            right:20px;
+            top:14px;
+            cursor:pointer;
+            font-size:20px;
+            user-select:none;
+        }
+
+        /* ================= SIDEBAR ================= */
+        .sidebar {
+            width: 240px;
+            background: var(--sidebar);
+            color: #e8eaf6;
+            height: 100vh;
+            position: fixed;
+            top: 60px;
+            left: 0;
+            padding-top: 10px;
+            overflow-y: auto;
+            transition:.4s;
+        }
+
+        .sidebar a,
+        .dropdown-btn {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 18px;
+            color: #e8eaf6;
+            text-decoration: none;
+            font-size: 15px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: background 0.3s, border-left 0.3s;
+        }
+
+        .sidebar a:hover,
+        .dropdown-btn:hover {
+            background: var(--sidebar-hover);
+            border-left: 3px solid #3E8EDE;
+            color: #fff;
+        }
+
+        /* ================= DROPDOWN ================= */
+        .dropdown-content {
+            max-height: 0;
+            overflow: hidden;
+            background: var(--dropdown);
+            transition: max-height 0.35s ease;
+        }
+
+        .dropdown-content a {
+            padding: 10px 32px;
+            font-size: 14px;
+        }
+
+        .dropdown.active .dropdown-content {
+            max-height: 500px;
+        }
+
+        /* ================= MAIN ================= */
+        .main {
+            margin-left: 240px;
+            margin-top: 80px;
+            padding: 25px;
+            transition:.4s;
+        }
+
+        /* ================= LOGOUT ================= */
+        .logout {
+            background: #dc3545;
+            margin: 20px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* ================= BUTTON ================= */
+        .btn {
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            padding: 10px 32px;
+            color: #e8eaf6;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: var(--sidebar-hover);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    🏦 तकनीकी कर्मचारी सहकारी साख संस्था मर्यादित, इंदौर
+    <span class="theme-toggle" onclick="toggleTheme()">🌙</span>
+</div>
+
+<div class="sidebar">
+
+    <a href="/dashboard">🏠 Dashboard</a>
+    <a href="/open_member">➕ Open Account</a>
+    <a href="/credit_debit">💰 Credit / Debit</a>
+    <a href="/news">📰 News Send</a>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">📄 Transactions Screen <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="{{ url_for('transfer') }}">💰 Transfer Screen</a>
+            <a href="{{ url_for('bulk_transaction') }}">🧾 Multi Transaction</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">📄 RD Form <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="/rd">📝 New RD</a>
+            <a href="{{ url_for('rd_pre_close') }}">🔴 RD Pre-Close</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">📄 FD Form <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="/fd">📄 New FD Form</a>
+            <a href="/fd_pre_close">🔴 FD Pre-Close</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">🏦 Loan Application <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="/loan/new">📝 New Loan</a>
+            <a href="{{ url_for('emi_repay') }}">💳 Loan Repay</a>
+            <a href="{{ url_for('loan_modify_form') }}">💳 Modify EMI</a>
+            <a href="{{ url_for('interest_form') }}">💼 Interest Recovery</a>
+            <a href="{{ url_for('loan_part_payment') }}">📘 Loan Part Payment</a>
+            <a href="{{ url_for('view_loans') }}">👀 View Loans</a>
+            <a href="{{ url_for('loan_passbook') }}">📘 Loan Passbook</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">📊 Reports <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="/passbook">🧾 Passbook Report</a>
+            <a href="/member_report">👥 Member Report</a>
+            <a href="/deduction_form">🧾 Employee Schedule</a>
+            <a href="{{ url_for('head_passbook') }}">📘 Head Passbook</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">📜 Certificates <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="/fd_certificate">📄 FD Certificate</a>
+            <a href="/rd_certificate">📄 RD Certificate</a>
+            <a href="/membership_certificate">📜 Membership Certificate</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">🧾 Deduction Schedule <span>▾</span></div>
+        <div class="dropdown-content">
+            <a href="/deduction_form">📑 Employee Schedule</a>
+            <a href="/deduction/upload">⬆ Deduction Upload</a>
+            <a href="/deduction/status">✅ Deduction Status</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">⏱️ Manual Scheduler <span>▾</span></div>
+        <div class="dropdown-content">
+            <form action="/manual_auto_renew" method="POST" style="margin:0;">
+                <button type="submit" class="btn">🔄 Run Auto-Renew Now</button>
+            </form>
+            <button class="btn" id="btnMonthlyInterest">🧮 Calculate Monthly Interest</button>
+            <button class="btn" id="btnAnnualInterest">💹 Credit Annual Interest</button>
+        </div>
+    </div>
+
+    <a href="/logout" class="logout">🚪 Logout</a>
+</div>
+
+<div class="main">
+    {% block content %}{% endblock %}
+</div>
+
+<script>
+/* DROPDOWN */
+document.querySelectorAll(".dropdown-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        btn.parentElement.classList.toggle("active");
+    });
+});
+
+/* DARK / LIGHT */
+function toggleTheme(){
+    document.body.classList.toggle("dark");
+    localStorage.setItem("theme",
+        document.body.classList.contains("dark") ? "dark" : "light");
+}
+
+/* LOAD SAVED THEME */
+if(localStorage.getItem("theme")==="dark"){
+    document.body.classList.add("dark");
+}
+
+/* EXISTING */
+document.getElementById("btnMonthlyInterest")?.addEventListener("click", () => {
+    fetch('/manual/monthly-interest', { method: 'POST' })
+        .then(r => r.json()).then(d => alert(d.message));
+});
+document.getElementById("btnAnnualInterest")?.addEventListener("click", () => {
+    fetch('/manual/annual-interest', { method: 'POST' })
+        .then(r => r.json()).then(d => alert(d.message));
+});
+</script>
+
+</body>
+</html>

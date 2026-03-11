@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>तकनीकी कर्मचारी सहकारी साख संस्था मर्यादित, इंदौर - Login</title>
+
+<style>
+body{
+    font-family:'Poppins',Arial,sans-serif;
+    background:linear-gradient(135deg,#1D2D50,#3E8EDE);
+    min-height:100vh;
+    margin:0;
+    padding:30px 0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    box-sizing:border-box;
+}
+
+/* ========== BLINKING LINE + TEXT ========== */
+.honor-line{
+    text-align:center;
+    margin-bottom:14px;
+    animation:fadeIn 1s ease;
+}
+
+.honor-text{
+    font-size:16px;
+    font-weight:600;
+    color:#ffffff;
+    letter-spacing:.5px;
+    text-shadow:0 0 8px rgba(255,255,255,.8);
+    animation:blinkText 2s infinite;
+}
+
+.honor-bar{
+    width:320px;
+    height:3px;
+    margin:8px auto 0;
+    background:linear-gradient(90deg,#ffd700,#ffffff,#ffd700);
+    border-radius:10px;
+    animation:blinkLine 1.5s infinite;
+}
+
+@keyframes blinkText{
+    0%,100%{opacity:1}
+    50%{opacity:.4}
+}
+
+@keyframes blinkLine{
+    0%{opacity:.2}
+    50%{opacity:1;box-shadow:0 0 12px #ffd700}
+    100%{opacity:.2}
+}
+
+@keyframes fadeIn{
+    from{opacity:0;transform:translateY(-10px)}
+    to{opacity:1}
+}
+
+/* ================= LOGIN CARD ================= */
+.login-card{
+    background:#ffffff;
+    width:380px;
+    max-height:90vh;
+    border-radius:18px;
+    box-shadow:0 12px 28px rgba(0,0,0,0.2);
+    padding:34px 34px;
+    text-align:center;
+    animation:cardPop .9s ease;
+}
+
+@keyframes cardPop{
+    from{opacity:0;transform:scale(.92) translateY(-20px)}
+    to{opacity:1;transform:scale(1)}
+}
+
+/* ================= LOGO ================= */
+.login-logo img{
+    height:110px;
+    margin-bottom:18px;
+    animation:logoZoom 1.1s ease, floatLogo 4s ease-in-out infinite;
+}
+
+@keyframes logoZoom{
+    from{transform:scale(.6);opacity:0}
+    to{transform:scale(1)}
+}
+@keyframes floatLogo{
+    50%{transform:translateY(-5px)}
+}
+
+/* ================= TEXT ================= */
+h2{
+    margin:6px 0;
+    color:#003366;
+    font-weight:700;
+}
+h4{
+    margin:0;
+    font-size:13px;
+    color:#555;
+}
+h3{
+    margin:8px 0 20px;
+    font-size:16px;
+    color:#3E8EDE;
+    font-weight:600;
+}
+
+/* ================= INPUT ================= */
+.login-card input{
+    width:100%;
+    padding:11px;
+    margin-top:12px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    outline:none;
+    font-size:14px;
+    transition:.3s;
+}
+.login-card input:focus{
+    border-color:#3E8EDE;
+    box-shadow:0 0 8px rgba(62,142,222,.4);
+}
+
+/* ================= BUTTON ================= */
+.login-card button{
+    width:100%;
+    background:linear-gradient(90deg,#3E8EDE,#2a6fcf);
+    color:white;
+    border:none;
+    padding:12px;
+    border-radius:9px;
+    margin-top:18px;
+    font-size:15px;
+    cursor:pointer;
+    transition:.3s;
+}
+.login-card button:hover{
+    transform:translateY(-2px) scale(1.02);
+    box-shadow:0 8px 18px rgba(62,142,222,.45);
+}
+
+/* ================= FOOTER ================= */
+.footer{
+    margin-top:18px;
+    font-size:12px;
+    color:#666;
+}
+</style>
+</head>
+
+<body>
+
+<div>
+    <!-- 🌟 BLINKING HONOR LINE -->
+   <!--  <div class="honor-line">
+        <div class="honor-text">
+            जब तक सूरज चाँद रहेगा<br>
+            संजय मालवीय सर आपका नाम रहेगा
+        </div>
+        <div class="honor-bar"></div>
+    </div>-->
+
+    <!-- LOGIN CARD -->
+    <form class="login-card" method="POST">
+
+        <div class="login-logo">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Bank Logo">
+        </div>
+
+        <h2>🏦 Pedi Portal Login</h2>
+        <h4>Welcome to</h4>
+        <h3>तकनीकी कर्मचारी सहकारी साख संस्था मर्यादित, इंदौर</h3>
+
+        <input type="text" name="username" placeholder="👤 Member No." required>
+        <input type="password" name="password" placeholder="🔒 Password" required>
+
+        <button type="submit">Login</button>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <div class="footer">
+            © {{ current_year or 2025 }} All Rights Reserved
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

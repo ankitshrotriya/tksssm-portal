@@ -1,0 +1,304 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<h2 style="text-align:center; margin-bottom:25px;">📘 Account Passbook Report</h2>
+
+<div class="card shadow-lg" style="max-width:750px; margin:auto; padding:25px; border-radius:15px; background:#fdfdfd;">
+
+    <!-- FILTER ROW -->
+    <div style="display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap;">
+
+        <!-- Member -->
+        <div style="flex:1; min-width:180px;">
+            <label style="font-weight:600; font-size:15px;">👤 Member No.</label>
+            <input list="memberList" id="memberSelect" class="form-control"
+                placeholder="Search Member No or Name..."
+                style="border-radius:8px; padding:10px;">
+            <datalist id="memberList"></datalist>
+        </div>
+
+        <!-- Account Type -->
+        <div style="flex:1; min-width:180px;">
+            <label style="font-weight:600; font-size:15px;">📂 Account Type</label>
+            <select id="accountType" class="form-control" style="border-radius:8px; padding:10px;">
+                <option value="">-- Select Type --</option>
+                <option value="Anivarya Sanchay">Anivarya Sanchay</option>
+                <option value="Saving Account">Saving Account</option>
+                <option value="Share Account">Share Account</option>
+                <option value="FD">Fixed Deposit (FD)</option>
+                <option value="RD">Recurring Deposit (RD)</option>
+				<option value="Home Loan Account">Home Loan Account</option>
+				
+            </select>
+        </div>
+
+        <!-- Start Date -->
+        <div style="flex:1; min-width:150px;">
+            <label style="font-weight:600; font-size:15px;">📅 Start Date</label>
+            <input type="date" id="startDate" class="form-control" style="border-radius:8px; padding:10px;">
+        </div>
+
+        <!-- End Date -->
+        <div style="flex:1; min-width:150px;">
+            <label style="font-weight:600; font-size:15px;">📅 End Date</label>
+            <input type="date" id="endDate" class="form-control" style="border-radius:8px; padding:10px;">
+        </div>
+
+    </div>
+
+    <!-- Account No -->
+    <div style="margin-top:20px;">
+        <label style="font-weight:600; font-size:15px;">🏦 Account No.</label>
+        <select id="accountNo" class="form-control" style="border-radius:8px; padding:10px;">
+            <option value="">-- Select Account No --</option>
+        </select>
+    </div>
+
+    <!-- BUTTONS -->
+    <!-- BUTTONS -->
+<div style="display:flex; gap:10px; margin-top:20px; align-items:center;">
+
+    <button class="btn"
+        style="flex:2; border-radius:8px; font-size:15px; background:#0d6efd; color:white; padding:8px 10px;"
+        onclick="loadPassbookData()">🔍 View</button>
+
+    <button class="btn"
+        style="flex:1; border-radius:8px; font-size:14px; background:#198754; color:white; padding:7px 10px;"
+        onclick="printPassbook()">🖨 Print</button>
+
+    <button class="btn"
+        style="flex:1; border-radius:8px; font-size:14px; background:#6c757d; color:white; padding:7px 10px;"
+        onclick="resetFilters()">🔄 Reset</button>
+
+</div>
+	
+
+	
+
+    <!-- SUMMARY SECTION -->
+    <div id="summaryBox" 
+         style="display:none; 
+                margin-top:18px;
+                padding:12px; 
+                border-radius:10px;
+                background:#eef6ff; 
+                font-size:15px; 
+                font-weight:600;
+                border-left:5px solid #0d6efd;">
+       📊 Total Credit: <span id="sumCredit" style="color:green;">₹0</span> |
+       Total Debit: <span id="sumDebit" style="color:red;">₹0</span> |
+       Balance: <span id="sumBalance" style="color:#003f7f;">₹0</span>
+    </div>
+
+    <hr>
+
+    <div id="passbookTable" style="margin-top:15px;"></div>
+</div>
+
+
+
+
+
+<!-- TABLE BEAUTY STYLE -->
+<style>
+.styled-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 10px;
+  font-size: 15px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0px 3px 10px rgba(0,0,0,0.1);
+}
+
+.styled-table thead tr {
+  background: linear-gradient(90deg, #0d6efd, #4dabff);
+  color: white;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+}
+
+.styled-table tbody tr:nth-child(even) {
+  background-color: #f2f7ff;
+}
+
+.styled-table tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.styled-table tbody tr:hover {
+  background: #dceeff;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.credit {
+  color: green;
+  font-weight: bold;
+}
+
+.debit {
+  color: red;
+  font-weight: bold;
+}
+</style>
+
+
+<script>
+
+// Load Members
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("/get_active_members")
+        .then(res => res.json())
+        .then(data => {
+            const list = document.getElementById("memberList");
+            data.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m.member_no;
+                opt.text = `${m.member_no} - ${m.member_name_eng}`;
+                list.appendChild(opt);
+            });
+        });
+});
+
+// Account Select Logic
+memberSelect.addEventListener("change", loadAccounts);
+accountType.addEventListener("change", loadAccounts);
+
+function loadAccounts() {
+    let memberNo = memberSelect.value;
+    let type = accountType.value;
+
+    accountNo.innerHTML = `<option value="">Loading...</option>`;
+    passbookTable.innerHTML = "";
+    document.getElementById("summaryBox").style.display = "none";
+
+    if(memberNo && type){
+        fetch(`/get_accounts_by_type/${memberNo}/${type}`)
+        .then(res => res.json())
+        .then(data => {
+            accountNo.innerHTML = `<option value="">-- Select Account No --</option>`;
+            data.accounts.forEach(acc => {
+                let opt = document.createElement("option");
+                opt.value = acc;
+                opt.text = acc;
+                accountNo.add(opt);
+            });
+        });
+    }
+}
+
+function loadPassbookData(){
+    let member = memberSelect.value;
+    let acc = accountNo.value;
+    let start = document.getElementById("startDate").value;
+    let end = document.getElementById("endDate").value;
+
+    if(!member || !acc){
+        passbookTable.innerHTML = `<p style='color:red;'>⚠ Please select all fields.</p>`;
+        return;
+    }
+
+    passbookTable.innerHTML = `<p>⏳ Loading records...</p>`;
+
+    fetch(`/get_passbook/${member}/${acc}`)
+    .then(res => res.json())
+    .then(data => {
+
+        let transactions = data.transactions;
+
+        // FRONTEND DATE FILTER
+        if(start) {
+            transactions = transactions.filter(t => t.date >= start);
+        }
+        if(end) {
+            transactions = transactions.filter(t => t.date <= end);
+        }
+
+        if(transactions.length === 0){
+            passbookTable.innerHTML = `<p style="color:red;">⚠ No transaction found!</p>`;
+            document.getElementById("summaryBox").style.display = "none";
+            return;
+        }
+
+        let totalCredit = 0, totalDebit = 0;
+
+        let html = `
+        <div style="overflow-x:auto; margin-top:20px;">
+        <table class="styled-table">
+            <thead>
+				<tr>
+				<th>Date</th>
+				<th>Remark</th>
+				<th>Transaction ID</th>
+				<th>Credit</th>
+				<th>Debit</th>
+				
+				<th>Balance</th>
+				</tr>
+				</thead><tbody>
+        `;
+
+        transactions.forEach(t => {
+
+			html += `
+			<tr>
+			<td>${t.date}</td>
+			<td>${t.remark || "-"}</td>
+			<td>${t.trans_no}</td>
+			<td class="credit">${t.credit ? "₹"+t.credit.toFixed(2) : ""}</td>
+			<td class="debit">${t.debit ? "₹"+t.debit.toFixed(2) : ""}</td>
+			
+			<td style="font-weight:bold; color:${t.balance >= 0 ? 'green' : 'red'}">
+			₹${Math.abs(t.balance).toFixed(2)} ${t.balance >= 0 ? 'Cr' : 'Dr'}
+			</td>
+			</tr>`;
+			});
+
+        html += "</tbody></table></div>";
+        passbookTable.innerHTML = html;
+
+        document.getElementById("summaryBox").style.display = "block";
+        document.getElementById("sumCredit").innerText = "₹" + totalCredit.toFixed(2);
+        document.getElementById("sumDebit").innerText  = "₹" + totalDebit.toFixed(2);
+        document.getElementById("sumBalance").innerText = "₹" + (totalCredit - totalDebit).toFixed(2);
+
+    });
+}
+
+function resetFilters(){
+    memberSelect.value = "";
+    accountType.value = "";
+    accountNo.innerHTML = `<option value="">-- Select Account No --</option>`;
+    document.getElementById("startDate").value = "";
+    document.getElementById("endDate").value = "";
+    passbookTable.innerHTML = "";
+    document.getElementById("summaryBox").style.display = "none";
+}
+
+
+function printPassbook(){
+    let member = memberSelect.value;
+    let acc = accountNo.value;
+    let start = document.getElementById("startDate").value;
+    let end = document.getElementById("endDate").value;
+
+    if(!member || !acc){
+        alert("Please select Member and Account first");
+        return;
+    }
+
+    // Open print page in new tab
+    window.open(`/print_passbook_page?member=${member}&acc=${acc}&start=${start}&end=${end}`, "_blank");
+}
+
+</script>
+
+{% endblock %}

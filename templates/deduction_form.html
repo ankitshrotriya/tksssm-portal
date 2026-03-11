@@ -1,0 +1,275 @@
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>📑 कर्मचारी कटौती अनुसूची</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+ body{
+    background:#f0f4f8;
+    font-family:'Poppins',sans-serif
+ }
+ .form-card{
+    background:#fff;
+    padding:30px;
+    border-radius:12px;
+    margin-top:30px;
+    box-shadow:0 6px 15px rgba(0,0,0,0.1)
+ }
+ .form-title{
+    text-align:center;
+    font-weight:600;
+    font-size:1.6rem;
+    margin-bottom:10px;
+    color:#00368e
+ }
+ input[type=number]{
+    width:110px;
+    text-align:right
+ }
+ .total{
+    background:#f1f5ff;
+    font-weight:600
+ }
+ .prev{
+    background:#f8f9fa;
+    font-weight:500;
+    text-align:right;
+    padding-right:6px;
+ }
+</style>
+</head>
+
+<body>
+
+<div class="container-fluid">
+<div class="form-card">
+
+<h3 class="form-title">📑 कर्मचारी कटौती अनुसूची</h3>
+
+<!-- 🔢 TOTAL MEMBER COUNT -->
+<div class="mb-2 text-end">
+  <span class="badge bg-primary fs-6">
+    कुल सदस्य : <span id="memberCount">0</span>
+  </span>
+</div>
+
+<!-- MESSAGE -->
+<div id="msgBox"></div>
+
+<!-- MONTH / YEAR + BUTTONS -->
+<div class="row g-3 mb-4 align-items-end">
+    <div class="col-md-3">
+        <label class="fw-semibold">माह</label>
+        <select id="month" class="form-select">
+            <option value="">Select Month</option>
+            {% for m in range(1,13) %}
+                <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <label class="fw-semibold">वर्ष</label>
+        <select id="year" class="form-select">
+            <option value="">Select Year</option>
+            {% for y in range(2023,2031) %}
+                <option value="{{ y }}">{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-6 text-end">
+        <button type="button" id="excelBtn" class="btn btn-primary btn-lg me-2">
+            📥 Excel Download
+        </button>
+        <button type="button" id="saveBtn" class="btn btn-success btn-lg">
+            💾 कटौती सहेजें
+        </button>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-responsive">
+<table class="table table-bordered table-sm table-striped align-middle" id="deductionTable">
+
+<thead class="table-dark text-center">
+<tr>
+    <th>Dept</th>
+    <th>Emp No</th>
+    <th>Member No</th>
+    <th>Name</th>
+    <th>अनिवार्य</th>
+    <th>RD</th>
+    {% for lt in loan_types %}
+        <th>{{ lt }}</th>
+    {% endfor %}
+    <th>Total</th>
+    <th>Previous Data</th>
+</tr>
+</thead>
+
+<tbody>
+{% for m in members %}
+<tr
+ data-dept="{{ m[3] }}"
+ data-emp="{{ m[2] }}"
+ data-member="{{ m[0] }}"
+ data-name="{{ m[1] }}"
+>
+
+<td>{{ m[3] }}</td>
+<td>{{ m[2] }}</td>
+<td>{{ m[0] }}</td>
+<td>{{ m[1] }}</td>
+
+<td><input type="number" class="amt anivarya form-control form-control-sm" value="{{ m[4] }}"></td>
+<td><input type="number" class="amt rd form-control form-control-sm" value="{{ m[5] }}"></td>
+
+{% for lt in loan_types %}
+<td>
+<input type="number"
+ class="amt loan form-control form-control-sm"
+ data-loan="{{ lt }}"
+ value="{{ loan_map.get(m[0], {}).get(lt, 0) }}">
+</td>
+{% endfor %}
+
+<td class="total text-end">0.00</td>
+<td class="prev">0.00</td>
+
+</tr>
+{% endfor %}
+</tbody>
+
+</table>
+</div>
+
+</div>
+</div>
+
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- ================= JS ================= -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  /* MEMBER COUNT */
+  document.getElementById("memberCount").innerText =
+    document.querySelectorAll("#deductionTable tbody tr").length;
+
+  /* TOTAL CALC */
+  function calc(row){
+    let t = 0;
+    row.querySelectorAll('.amt').forEach(i => {
+      t += parseFloat(i.value || 0);
+    });
+    row.querySelector('.total').innerText = t.toFixed(2);
+  }
+
+  document.querySelectorAll('#deductionTable tbody tr')
+    .forEach(r => calc(r));
+
+  document.querySelectorAll('.amt').forEach(i =>
+    i.addEventListener('input', () => calc(i.closest('tr')))
+  );
+
+  /* 📥 EXCEL DOWNLOAD */
+  document.getElementById("excelBtn").addEventListener("click", () => {
+
+    const rows = [];
+    document.querySelectorAll("#deductionTable tbody tr").forEach(tr => {
+
+      const row = {
+        Dept: tr.children[0].innerText,
+        EmpNo: tr.children[1].innerText,
+        MemberNo: tr.children[2].innerText,
+        Name: tr.children[3].innerText
+      };
+
+      let colIndex = 4;
+      row["अनिवार्य"] = tr.children[colIndex++].querySelector("input").value || 0;
+      row["RD"] = tr.children[colIndex++].querySelector("input").value || 0;
+
+      {% for lt in loan_types %}
+        row["{{ lt }}"] = tr.children[colIndex++].querySelector("input").value || 0;
+      {% endfor %}
+
+      row["Total"] = tr.children[colIndex++].innerText;
+      row["Previous Data"] = tr.children[colIndex++].innerText;
+
+      rows.push(row);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "Deductions");
+
+    XLSX.writeFile(
+      wb,
+      `Deduction_${document.getElementById("month").value}_${document.getElementById("year").value}.xlsx`
+    );
+  });
+
+  /* 💾 SAVE TO DB */
+  document.getElementById("saveBtn").addEventListener("click", async () => {
+
+    const month = document.getElementById("month").value;
+    const year  = document.getElementById("year").value;
+
+    if(!month || !year){
+      alert("माह और वर्ष चुनें");
+      return;
+    }
+
+    const rows = [];
+
+    document.querySelectorAll("#deductionTable tbody tr").forEach(tr => {
+
+      const loans = {};
+      tr.querySelectorAll(".loan").forEach(inp => {
+        loans[inp.dataset.loan] = parseFloat(inp.value || 0);
+      });
+
+      rows.push({
+        dept   : tr.dataset.dept,
+        emp    : tr.dataset.emp,
+        member : tr.dataset.member,
+        name   : tr.dataset.name,
+        anivarya : parseFloat(tr.querySelector(".anivarya").value || 0),
+        rd       : parseFloat(tr.querySelector(".rd").value || 0),
+        loans    : loans
+      });
+    });
+
+    const res = await fetch("/save_deductions_batch",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ month, year, rows })
+    });
+
+    if(res.status === 409){
+      alert("❌ इस माह / वर्ष की कटौती पहले से मौजूद है");
+      return;
+    }
+
+    if(res.ok){
+      alert("✅ कटौती सफलतापूर्वक सहेजी गई");
+      location.reload();
+    }else{
+      alert("❌ Save failed");
+    }
+  });
+
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
+{% endblock %}

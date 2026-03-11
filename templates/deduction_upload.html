@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* ===== CARD ===== */
+.upload-card{
+    max-width: 520px;
+    margin: auto;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+    padding: 30px;
+}
+
+/* ===== ICON ===== */
+.upload-icon{
+    font-size: 48px;
+    color: #0d6efd;
+}
+
+/* ===== INFO BOX ===== */
+.info-box{
+    background: #f1f6ff;
+    border-left: 5px solid #0d6efd;
+    padding: 12px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+/* ===== FIXED BUTTON (BASE.HTML CONFLICT FIX) ===== */
+.upload-btn{
+    background-color: #0d6efd !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 12px 16px !important;
+    font-size: 16px !important;
+    border-radius: 8px !important;
+    font-weight: 600;
+    width: 100%;
+}
+
+.upload-btn:hover{
+    background-color: #0b5ed7 !important;
+}
+</style>
+
+<div class="container mt-4">
+
+  <div class="upload-card">
+
+    <!-- HEADER -->
+    <div class="text-center mb-3">
+      <div class="upload-icon">📤</div>
+      <h4 class="fw-bold mt-2">Deduction Sheet Upload</h4>
+      <p class="text-muted mb-0">
+        Excel फ़ाइल upload करें (Status: <b>PENDING</b>)
+      </p>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for c,m in messages %}
+        <div class="alert alert-{{c}} alert-dismissible fade show">
+          {{ m }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- INFO -->
+    <div class="info-box mb-3">
+      <b>📄 Excel Format Required:</b><br>
+      • upload_row_id<br>
+      • employee_no<br>
+      • employee_name<br>
+      • total_deducted_amount<br>
+      • month<br>
+      • year
+    </div>
+
+    <!-- FORM -->
+    <form method="POST" enctype="multipart/form-data">
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">
+          Select Excel File (.xlsx / .xls)
+        </label>
+        <input
+          type="file"
+          name="file"
+          class="form-control"
+          accept=".xlsx,.xls"
+          required
+        >
+      </div>
+
+      <button type="submit" class="upload-btn">
+        📥 Upload Deduction Sheet
+      </button>
+
+    </form>
+
+  </div>
+
+</div>
+
+{% endblock %}

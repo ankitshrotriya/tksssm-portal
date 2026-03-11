@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-card">
+    <h2>💼 ब्याज वसूली फॉर्म</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('interest_form') }}">
+
+        <!-- MEMBER -->
+        <label>सदस्य संख्या</label>
+        <select id="member_select" name="member_no" class="input" required>
+            <option value="">-- Select Member --</option>
+            {% for m in members %}
+                <option value="{{ m[0] }}" data-name="{{ m[1] }}">
+                    {{ m[0] }} - {{ m[1] }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <!-- NAME -->
+        <label>सदस्य का नाम</label>
+        <input id="member_name" name="member_name" class="input" readonly>
+
+        <!-- Debit Account -->
+        <label>Debit Account</label>
+        <input id="debit_account" name="debit_account" class="input" readonly placeholder="Saving Account">
+
+        <!-- LOAN -->
+        <label>ऋण नंबर</label>
+        <select id="loan_select" name="loan_no" class="input" required>
+            <option value="">-- पहले सदस्य चुनें --</option>
+        </select>
+
+        <!-- LOAN TYPE -->
+        <label>ऋण प्रकार</label>
+        <input id="loan_type" name="loan_head" class="input" readonly>
+
+        <!-- OUTSTANDING -->
+        <label>Outstanding ब्याज (₹)</label>
+        <input id="outstanding" name="outstanding" class="input" readonly>
+
+        <!-- CREDIT ACCOUNT -->
+        <!-- CREDIT ACCOUNT -->
+<label>Credit Account</label>
+<select id="credit_account" name="credit_account" class="input" required>
+    <option value="">-- Select Loan Head --</option>
+    {% for c in loan_heads %}
+        <option value="{{ c[0] }}">{{ c[0] }} - {{ c[1] }}</option>  <!-- ID - Name displayed -->
+    {% endfor %}
+</select>
+
+
+        <button type="submit" class="btn-primary" style="margin-top:20px;">💾 Save Entry</button>
+    </form>
+</div>
+
+<script>
+const loansData = {{ loans | tojson }};
+const memberDropdown = document.getElementById('member_select');
+const loanDropdown = document.getElementById('loan_select');
+
+// Member selection
+memberDropdown.addEventListener('change', function() {
+    const member_no = this.value;
+    const member_name = this.selectedOptions[0].dataset.name;
+
+    document.getElementById('member_name').value = member_name;
+    document.getElementById('debit_account').value = `Saving A/C (${member_no} - ${member_name})`;
+
+    // Reset loan dropdown
+    loanDropdown.innerHTML = '<option value="">-- Select Loan --</option>';
+
+    // Filter active loans for this member
+    const filteredLoans = loansData.filter(l => l.member_no == member_no && l.status == '1');
+
+    filteredLoans.forEach(l => {
+        loanDropdown.innerHTML += `<option value="${l.loan_no}" data-head="${l.loan_head}" data-out="${l.total_payable}">
+            ${l.loan_no} (${l.loan_head})
+        </option>`;
+    });
+});
+
+// Loan selection
+loanDropdown.addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    document.getElementById('loan_type').value = selected.getAttribute("data-head");
+    document.getElementById('outstanding').value = selected.getAttribute("data-out");
+});
+</script>
+
+<style>
+.form-card {
+    width: 500px;
+    margin: auto;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    margin-top: 40px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+}
+.input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+    font-size: 15px;
+    transition: 0.2s;
+}
+.input:focus {
+    border-color: #0d6efd;
+    outline: none;
+}
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    background: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: bold;
+}
+.btn-primary:hover {
+    background: #084ccf;
+}
+.flash {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+}
+.flash.success { background: #d4edda; color: #155724; }
+.flash.error { background: #f8d7da; color: #721c24; }
+</style>
+
+{% endblock %}
