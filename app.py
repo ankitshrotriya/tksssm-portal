@@ -6856,6 +6856,9 @@ def print_passbook_page():
         end_date=end_date
     )
 
+@app.route("/ping")
+def ping():
+    return "OK"
 
 
 
