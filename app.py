@@ -6873,6 +6873,15 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(self_ping, "interval", minutes=10)
 scheduler.start()
 
+import json
+from flask import jsonify
+
+@app.route("/config.json")
+def config_json():
+    with open("config.json") as f:
+        data = json.load(f)
+    return jsonify(data)
+
 
 
 
