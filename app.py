@@ -8280,12 +8280,7 @@ def bank_transfer():
         month = dt.month
         year = dt.year
 
-        conn = psycopg2.connect(
-            host="localhost",
-            database="pedi",
-            user="postgres",
-            password="root"
-        )
+        conn = get_db()
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -8342,12 +8337,7 @@ def bank_posting():
 
     trans_date = datetime.strptime(date, "%Y-%m-%d")
 
-    conn = psycopg2.connect(
-        host="localhost",
-        database="pedi",
-        user="postgres",
-        password="root"
-    )
+    conn = get_db()
     cursor = conn.cursor()
 
     try:
