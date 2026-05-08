@@ -8428,6 +8428,35 @@ def generate_voucher(cursor):
 
 
 
+@app.route("/ping")
+def ping():
+    return "OK"
+
+import requests
+from apscheduler.schedulers.background import BackgroundScheduler
+
+def self_ping():
+    try:
+        requests.get("https://tksssm-portal.onrender.com/ping")
+    except:
+        pass
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(self_ping, "interval", minutes=10)
+scheduler.start()
+
+import json
+from flask import jsonify
+
+@app.route("/config.json")
+def config_json():
+    with open("config.json") as f:
+        data = json.load(f)
+    return jsonify(data)
+
+
+
+
 
 
 
