@@ -20,6 +20,9 @@ from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, redirect, flash
 import psycopg2
 import pandas as pd
+from flask import request, render_template, redirect, url_for, session
+from datetime import datetime
+import psycopg2
 
 
 # --- Flask Setup ---
@@ -37,11 +40,11 @@ from flask_cors import CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
-# 🔵 ADD THIS PART
+"""# 🔵 ADD THIS PART
 from union_portal import union
 app.register_blueprint(union)
 
-print(app.url_map)
+print(app.url_map)"""
 
 
 
@@ -52,15 +55,16 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # --- Database Setup ---
+DB_HOST = "localhost"
+DB_NAME = "pedi"
+DB_USER = "postgres"
+DB_PASS = "root"
+
+
 def get_db():
-    DATABASE_URL = os.environ.get("DATABASE_URL")
-
-    conn = psycopg2.connect(
-        DATABASE_URL,
-        sslmode="require"
+    return psycopg2.connect(
+        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
     )
-
-    return conn
 
 
 # ✅ Function to generate sequential account numbers
@@ -131,7 +135,6 @@ def login():
 from datetime import datetime, timedelta
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
-from apscheduler.schedulers.background import BackgroundScheduler
 
 
 
@@ -205,8 +208,8 @@ def auto_renew_rd():
             INSERT INTO rd_accounts
             (rd_account_no, member_no, member_name, start_date, duration_months,
              interest_rate, monthly_deposit, total_installments, maturity_date,
-             maturity_amount, nominee_name, remark, status, installments_paid, auto_renew)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Active',1, True)
+             maturity_amount, nominee_name, remark, status, installments_paid, auto_renew,deduction_status)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Active',1, True,'true')
         """, (
             new_rd_account_no, member_no, member_name, start_dt, duration_months,
             interest_rate, monthly_deposit, duration_months, maturity_dt,
@@ -255,8 +258,8 @@ def auto_renew_rd():
     cur.close()
     conn.close()
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(auto_renew_rd, 'cron', hour=2)
+#scheduler = BackgroundScheduler()
+#scheduler.add_job(auto_renew_rd, 'cron', hour=2)
 
 
 # --- DASHBOARD ---
@@ -307,6 +310,17 @@ def open_member():
         "SELECT member_no, member_name_eng, member_type FROM public.members WHERE member_type = 'Member'"
     )
     guarantors = cur.fetchall()
+    
+    # 🔹 Fetch Companies
+    cur.execute("""
+    SELECT company_code, company_name
+    FROM company_master
+    ORDER BY company_name
+    """)
+
+    companies = cur.fetchall()
+    
+    
 
     # ✅ Generate sequential Member Number (TKSSSM00001 format)
     cur.execute(
@@ -336,10 +350,48 @@ def open_member():
     conn.close()
 
     return render_template(
-        "open_member.html", guarantors=guarantors, new_member_no=new_member_no
+        "open_member.html", guarantors=guarantors, new_member_no=new_member_no,companies=companies
     )
 
+@app.route("/get_divisions/<company_code>")
+def get_divisions(company_code):
 
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT division_code, division_name
+    FROM division_master
+    WHERE company_code=%s
+    ORDER BY division_name
+    """,(company_code,))
+
+    divisions = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return jsonify(divisions)
+    
+@app.route("/get_subdivisions/<division_code>")
+def get_subdivisions(division_code):
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT subdivision_code, subdivision_name
+    FROM subdivision_master
+    WHERE division_code=%s
+    ORDER BY subdivision_name
+    """,(division_code,))
+
+    subdivisions = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return jsonify(subdivisions)
 
 # --- SAVE MEMBER ---
 # --- SAVE MEMBER ---
@@ -362,6 +414,12 @@ def save_member():
         data["member_type"] = data.get("member_type") or "Member"
         data["remark"] = data.get("remark") or "Active"
         data["status"] = data.get("status") or "Active"
+        
+        # ✅ AUTO set old_member_no
+        if data.get("member_type") == "Member":
+            data["old_member_no"] = True
+        else:
+            data["old_member_no"] = False
 
         # ✅ Handle uploaded files
         file_fields = ["member_photo_path", "member_sign_path", "nominee_photo_path"]
@@ -472,6 +530,8 @@ def get_accounts(member_no):
     cur = conn.cursor()
     cur.execute("SELECT account_no, account_type FROM accounts WHERE member_no = %s", (member_no,))
     accounts = [{"account_no": a[0], "account_type": a[1]} for a in cur.fetchall()]
+    
+
     cur.close()
     conn.close()
     return {"accounts": accounts}
@@ -664,7 +724,7 @@ def credit_debit():
 
                     cur.execute("""
                         UPDATE rd_accounts 
-                        SET status='Closed', closed_date=NOW() 
+                        SET status='Closed', closed_date=NOW(),deduction_status='false' 
                         WHERE rd_account_no=%s
                     """, (rd_account_no,))
 
@@ -944,9 +1004,16 @@ def fd_form():
     # Auto-generate FD Account No
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT fd_account_no FROM fd_accounts ORDER BY fd_account_no DESC LIMIT 1")
-    last = cur.fetchone()
-    new_fd_no = f"FD{(int(last[0].replace('FD','')) + 1):05d}" if last else "FD00001"
+    cur.execute("""
+        SELECT MAX(CAST(SUBSTRING(fd_account_no,3) AS INTEGER))
+        FROM fd_accounts
+        WHERE fd_account_no NOT LIKE '%-%'
+    """)
+
+    last = cur.fetchone()[0]
+
+    new_fd_no = f"FD{(last + 1):05d}" if last else "FD00001"
+        
     cur.close()
     conn.close()
 
@@ -1001,6 +1068,24 @@ def save_fd():
         # Deduct balance
         new_balance = balance - amount
         cur.execute("UPDATE accounts SET balance=%s WHERE account_no=%s", (new_balance, saving_acc_no))
+        
+        # 🔹 DUPLICATE FD CHECK (ADD THIS)
+        cur.execute("""
+            SELECT 1 FROM fd_accounts WHERE fd_account_no = %s
+        """, (data["fd_account_no"],))
+
+        exists = cur.fetchone()
+
+        if exists:
+            cur.execute("""
+                SELECT MAX(CAST(SUBSTRING(fd_account_no,3) AS INTEGER))
+                FROM fd_accounts
+            """)
+            last = cur.fetchone()[0]
+
+            new_fd_no = f"FD{(last + 1):05d}" if last else "FD00001"
+
+            data["fd_account_no"] = new_fd_no   # ✅ overwrite duplicate FD
 
         # Record Debit transaction
         cur.execute("""
@@ -1062,8 +1147,7 @@ def fd_check_maturity():
     count = check_fd_maturity()
     flash(f"✅ {count} matured FDs closed and transferred successfully!", "success")
     return redirect("/dashboard")
-
-
+        
 def generate_fd_no(cur):
     cur.execute("""
         SELECT MAX(CAST(SUBSTRING(fd_account_no,3) AS INTEGER))
@@ -1077,10 +1161,46 @@ def generate_fd_no(cur):
     else:
         new_no = 1
 
-    return f"FD{new_no:05d}"        
+    return f"FD{new_no:05d}" 
 
-        
-        
+def generate_renew_fd_no(cur, old_fd_no):
+
+    # Root FD number निकालो
+    if "-" in old_fd_no:
+        root_fd = old_fd_no.split("-")[0]
+    else:
+        root_fd = old_fd_no
+
+    # उसी root FD के सारे renew count निकालो
+    cur.execute("""
+        SELECT fd_account_no
+        FROM fd_accounts
+        WHERE fd_account_no LIKE %s
+    """, (root_fd + '%',))
+
+    existing_fds = cur.fetchall()
+
+    max_suffix = 0
+
+    for (fd_no,) in existing_fds:
+
+        if "-" in fd_no:
+
+            try:
+                suffix = int(fd_no.rsplit("-", 1)[1])
+
+                if suffix > max_suffix:
+                    max_suffix = suffix
+
+            except:
+                pass
+
+    new_suffix = max_suffix + 1
+
+    # ✅ 01, 02 format
+    formatted_suffix = f"{new_suffix:02d}"
+
+    return f"{root_fd}-{formatted_suffix}"
         
         
 from decimal import Decimal
@@ -1164,13 +1284,20 @@ def check_fd_maturity():
             SET status='Closed', is_closed=TRUE, closed_at=%s, remark='Matured'
             WHERE fd_account_no=%s
         """, (today, fd_account_no))
+        
+        cur.execute("""
+            UPDATE fd_monthly_interest
+            SET given_interest = TRUE
+            WHERE fd_account_no = %s
+            AND month_date <= %s
+        """, (fd_account_no, today))
 
         # 4️⃣ IF AUTO RENEW = TRUE → Create new FD
         # 4️⃣ IF AUTO RENEW = TRUE → Create new FD
         if auto_renew:
 
             # Generate new FD number
-            new_fd_no = generate_fd_no(cur)
+            new_fd_no = generate_renew_fd_no(cur, fd_account_no)
 
             new_start = today
 
@@ -1514,6 +1641,43 @@ def fd_premature_close():
             remark='Prematurely Closed'
         WHERE fd_account_no=%s
     """, (today, fd_account_no))
+    
+    # ==============================
+    # ✅ Mark correct monthly interest TRUE
+    # ==============================
+
+    # Step 1 — 45 day rule apply
+    if days_held <= 45:
+        # No interest given → nothing TRUE
+        pass
+
+    else:
+
+        # Interest starts after 45 days
+        interest_start_date = start_date + timedelta(days=45)
+
+        # Step 2 — Find total interest payable days
+        remaining_days = days_held
+
+        # Remove full years first
+        full_years_days = (remaining_days // 365) * 365
+        remaining_days_after_years = remaining_days - full_years_days
+
+        # Step 3 — Find interest upto date
+        interest_upto_date = start_date + timedelta(days=days_held)
+
+        # Step 4 — Update monthly table
+        cur.execute("""
+            UPDATE fd_monthly_interest
+            SET given_interest = TRUE
+            WHERE fd_account_no = %s
+            AND month_date >= %s
+            AND month_date <= %s
+        """, (
+            fd_account_no,
+            interest_start_date,
+            interest_upto_date
+        ))
 
     conn.commit()
     cur.close()
@@ -1586,8 +1750,8 @@ def generate_fd_monthly_interest(fd_account_no, member_no, member_name, principa
         cur.execute("""
             INSERT INTO fd_monthly_interest
             (fd_account_no, member_no, member_name, month_date,
-             principal, interest_rate, monthly_interest, created_on)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+             principal, interest_rate, monthly_interest, created_on,given_interest)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s,false)
         """, (
             fd_account_no, member_no, member_name, month_date,
             principal, rate, monthly_interest, created_on
@@ -1617,74 +1781,161 @@ def generate_all_fd_interest():
 
     cur.close()
     conn.close()
-from apscheduler.schedulers.background import BackgroundScheduler
 
-scheduler = BackgroundScheduler()
+#scheduler = BackgroundScheduler()
 
-scheduler.add_job(
-    generate_all_fd_interest,   # ye function sab FD ke liye call kare
-    'cron',
-    day=1,
-    hour=1
-)
+#scheduler.add_job(
+#    generate_all_fd_interest,   # ye function sab FD ke liye call kare
+#    'cron',
+#    day=1,
+#    hour=1
+#)
 
-
-
-
-@app.route("/fd/yearly_interest")
+@app.route("/fd/yearly_interest", methods=["POST"])
 def fd_yearly_interest():
+
+    count = run_fd_yearly_interest()
+
+    flash(
+        f"✅ FD Yearly Interest Done ({count})",
+        "success"
+    )
+
+    return redirect("/dashboard")
+
+
+def run_fd_yearly_interest():
+
     today = datetime.now().date()
+
     conn = get_db()
     cur = conn.cursor()
 
-    # Select all active FDs with yearly interest enabled
+    print("Running FD Yearly Interest...")
+
     cur.execute("""
-        SELECT fd_account_no, member_no, deposit_amount, interest_rate, start_date, fd_duration
+        SELECT fd_account_no,
+               member_no,
+               deposit_amount,
+               interest_rate,
+               start_date,
+               last_interest_date
         FROM fd_accounts
-        WHERE withdraw_yearly_interest = TRUE AND status='Active'
+        WHERE withdraw_yearly_interest = TRUE
+        AND status='Active'
     """)
+
     fds = cur.fetchall()
 
-    for fd_no, member_no, principal, rate, start_date, fd_duration in fds:
-        start_date = start_date
-        # कितने साल पूरे हुए
-        years_passed = (today - start_date).days // 365
-        if years_passed <= 0:
-            continue
+    processed = 0
 
-        # Last interest transfer date check
-        cur.execute("SELECT last_interest_date FROM fd_accounts WHERE fd_account_no=%s", (fd_no,))
-        last_transfer = cur.fetchone()[0]
+    from decimal import Decimal
+
+    for (
+        fd_no,
+        member_no,
+        principal,
+        rate,
+        start_date,
+        last_transfer
+    ) in fds:
+
         last_transfer_date = last_transfer or start_date
-        years_to_pay = (today - last_transfer_date).days // 365
+
+        years_to_pay = (
+            today - last_transfer_date
+        ).days // 365
+
         if years_to_pay <= 0:
             continue
 
-        yearly_interest = principal * (rate / 100) * years_to_pay
+        yearly_interest = (
+            Decimal(principal)
+            * Decimal(rate)
+            / Decimal('100')
+            * Decimal(years_to_pay)
+        ).quantize(Decimal("0.01"))
 
-        # Transfer interest to Saving account
-        cur.execute("SELECT account_no FROM accounts WHERE member_no=%s AND account_type='Saving Account'", (member_no,))
+        cur.execute("""
+            SELECT account_no
+            FROM accounts
+            WHERE member_no=%s
+            AND account_type='Saving Account'
+        """, (member_no,))
+
         saving_acc = cur.fetchone()
+
         if saving_acc:
-            cur.execute("""
-                UPDATE accounts SET balance = balance + %s WHERE account_no=%s
-            """, (yearly_interest, saving_acc[0]))
 
-            # Transaction record
-            cur.execute("""
-                INSERT INTO transactions (member_no, account_no, trans_type, amount, trans_date, remark, created_by, fd_account_no)
-                VALUES (%s, %s, 'Credit', %s, %s, %s, 'system', %s)
-            """, (member_no, saving_acc[0], yearly_interest, today, f"Yearly Interest FD {fd_no}", fd_no))
+            processed += 1
 
-            # Update last transfer date
             cur.execute("""
-                UPDATE fd_accounts SET last_interest_date=%s WHERE fd_account_no=%s
-            """, (today, fd_no))
+                UPDATE accounts
+                SET balance = balance + %s
+                WHERE account_no=%s
+            """, (
+                yearly_interest,
+                saving_acc[0]
+            ))
+
+            cur.execute("""
+                INSERT INTO transactions
+                (
+                    member_no,
+                    account_no,
+                    trans_type,
+                    amount,
+                    trans_date,
+                    remark,
+                    created_by,
+                    fd_account_no
+                )
+                VALUES
+                (%s,%s,'Credit',%s,%s,%s,'system',%s)
+            """, (
+                member_no,
+                saving_acc[0],
+                yearly_interest,
+                today,
+                f"Yearly Interest FD {fd_no}",
+                fd_no
+            ))
+            
+            
+
+            cur.execute("""
+                UPDATE fd_accounts
+                SET last_interest_date=%s
+                WHERE fd_account_no=%s
+            """, (
+                today,
+                fd_no
+            ))
+            
+            # ✅ Mark monthly interest as given for paid yearly period
+
+            interest_upto_date = last_transfer_date + timedelta(days=365 * years_to_pay)
+
+            cur.execute("""
+                UPDATE fd_monthly_interest
+                SET given_interest = TRUE
+                WHERE fd_account_no = %s
+                AND month_date > %s
+                AND month_date <= %s
+            """, (
+                fd_no,
+                last_transfer_date,
+                interest_upto_date
+            ))
 
     conn.commit()
+
     cur.close()
     conn.close()
-    return "✅ Yearly interest credited successfully!"
+
+    print("FD Yearly Interest Done:", processed)
+
+    return processed
 
 
     
@@ -1804,6 +2055,26 @@ def get_accounts_by_type(member_no, acc_type):
                 ORDER BY rd_account_no
             """, (member_no,))
             accounts = [r[0] for r in cur.fetchall()]
+            
+        # ✅ Loan (WITH NAME)
+        elif acc_type == "Loan":
+
+            cur.execute("""
+                SELECT loan_no, loan_head
+                FROM loans
+                WHERE member_no=%s
+                AND status='Active'
+                ORDER BY loan_no
+            """, (member_no,))
+
+            rows = cur.fetchall()
+
+            accounts = [
+                f"{r[0]} - {r[1]}"   # loan_no - loan_head
+                for r in rows
+            ]
+
+            print("Loans Found:", accounts)
 
     except Exception as e:
         print("❌ Error in get_accounts_by_type:", e)
@@ -1818,7 +2089,6 @@ def get_accounts_by_type(member_no, acc_type):
     
  
 # --- Get Passbook Transactions ---
-# --- Get Passbook Transactions (with Transaction ID & Source) ---
 # --- Get Passbook Transactions (with Transaction ID & Source) ---
 @app.route("/get_passbook/<member_no>/<account_no>")
 def get_passbook(member_no, account_no):
@@ -1890,6 +2160,7 @@ def get_passbook(member_no, account_no):
     conn.close()
 
     return {"transactions": transactions}
+
     
     
 # --- RD FORM ---
@@ -1967,8 +2238,8 @@ def save_rd():
             INSERT INTO rd_accounts 
             (rd_account_no, member_no, member_name, start_date, duration_months,
              interest_rate, monthly_deposit, total_installments, maturity_date,
-             maturity_amount, nominee_name, remark, status, installments_paid, auto_renew)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Active',%s,%s)
+             maturity_amount, nominee_name, remark, status, installments_paid, auto_renew,deduction_status)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Active',%s,%s,'true')
         """, (rd_account_no, member_no, member_name, start_dt, duration_months, interest_rate, monthly_deposit,
               total_installments, maturity_dt, maturity_amount, nominee_name, remark, installments_paid, auto_renew))
 
@@ -2071,12 +2342,19 @@ def member_report():
         SELECT member_no, member_name_eng 
         FROM members 
         WHERE status='Active'
-        ORDER BY member_no;
+        ORDER BY member_no;   
     """)
+    cur.execute("""
+    SELECT company_code, company_name
+    FROM company_master
+    ORDER BY company_name
+    """)
+
+    companies = cur.fetchall()
     members = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template("member_report.html", members=members)
+    return render_template("member_report.html", members=members,companies=companies)
     
     
 from flask import jsonify
@@ -2158,8 +2436,8 @@ def get_last_day_of_month(d):
     return last_day
 
 
-scheduler = BackgroundScheduler()
-scheduler.start()
+#scheduler = BackgroundScheduler()
+
 
 # ================================
 # MONTHLY INTEREST CALCULATION
@@ -2249,9 +2527,22 @@ def credit_annual_interest():
     """, (fy_start, fy_end))
 
     payouts = cur.fetchall()
-
+    processed_count = 0
+    
     for account_no, member_no, total_interest in payouts:
         total_interest = Decimal(total_interest).quantize(Decimal('0.01'))
+        
+        if total_interest <= 0:
+            continue
+
+        processed_count += 1
+
+        print(
+            "Processing Account:",
+            account_no,
+            "Interest:",
+            total_interest
+        )
 
         # Add interest to account balance
         cur.execute("""
@@ -2279,9 +2570,64 @@ def credit_annual_interest():
             total_interest, today,
             f"Annual Interest Credited FY {financial_year}"
         ))
+        
+        # ✅ NEW: Bank Debit Entry (bank_id = 560)
+
+        bank_remark = (
+            f"Annual Interest Debit FY "
+            f"{financial_year} Account {account_no}"
+        )
+
+        cur.execute("""
+            INSERT INTO bank_transactions
+            (
+                loan_no,
+                bank_name,
+                trans_type,
+                amount,
+                trans_date,
+                remark,
+                created_by,
+                member_no,
+                bank_id,
+                created_on
+            )
+            VALUES (
+                %s,
+                %s,
+                'Debit',
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                NOW()
+            )
+        """, (
+            account_no,
+            'Interest Payment',
+            total_interest,
+            today,
+            bank_remark,
+            'System',
+            member_no,
+            '560'
+        ))
+
+        print(
+            "Bank Debit Entry Done:",
+            account_no,
+            "Amount:",
+            total_interest
+        )
 
     conn.commit()
     print("Annual interest credited successfully.")
+    print(
+        "Total Accounts Processed:",
+        processed_count
+    )
     cur.close()
     conn.close()
 
@@ -2292,11 +2638,30 @@ def credit_annual_interest():
 # ================================
 
 # Run every month last day at 23:59
-scheduler.add_job(calculate_monthly_interest, 'cron', day='last', hour=23, minute=59)
+#scheduler.add_job(calculate_monthly_interest, 'cron', day='last', hour=23, minute=59)
 
 # Run yearly: 31 March 23:59
-scheduler.add_job(credit_annual_interest, 'cron',
-                  month='3', day='31', hour=23, minute=59)
+#scheduler.add_job(credit_annual_interest, 'cron',
+#                  month='3', day='31', hour=23, minute=59)
+                  
+#scheduler.add_job(auto_renew_rd, 'cron', hour=2)
+
+
+#scheduler.add_job(
+#    generate_all_fd_interest,   # ye function sab FD ke liye call kare
+#    'cron',
+#    day=1,
+#    hour=1
+#)
+
+
+#scheduler.add_job(
+#    auto_generate_monthly_loan_interest,
+#    trigger='cron',        # har mahine last tareekh
+#    day='last',
+#    hour=23,
+#    minute=55
+#)
 
 
 # ================================
@@ -2353,9 +2718,19 @@ def update_member_contact():
     bank_branch_address = data.get("bank_branch_address")
     remark = data.get("remark")
     employee_no = data.get("employee_no")
+    circle = data.get("circle")
+    division = data.get("division")
+    dc_zone = data.get("dc_zone")
+    compulsory_deposit_amt = data.get("compulsory_deposit_amt") 
+    old_member_no = data.get("old_member_no")
+
+    
 
     conn = get_db()
     cur = conn.cursor()
+    
+    
+    
     
     cur.execute("""
         UPDATE members
@@ -2384,14 +2759,21 @@ def update_member_contact():
             bank_branch_address = %s,
             remark = %s,
             employee_no = %s,
+            circle = %s,
+            division = %s,
+            dc_zone = %s,
+            compulsory_deposit_amt = %s,
+            old_member_no = %s,
             updated_on = NOW()
         WHERE member_no = %s
     """, (
         member_name_eng, member_name_hin, member_type, opening_date, dob, age, father_name, gender, marrital_status,
         religion, caste, mobile, email, pan, adhar, present_address, permanent_address,
         nominee_name, nominee_relationship, bank_acct_no, bank_ifsc_code, bank_name, bank_branch_address,
-        remark,employee_no, member_no
+        remark,employee_no,circle,division,dc_zone,compulsory_deposit_amt,old_member_no, member_no
     ))
+    
+    
 
     # 👇 NEW PART – password bhi update karo
     if mobile:
@@ -2407,6 +2789,8 @@ def update_member_contact():
 
     flash(f"✅ Member {member_no} details updated successfully!", "success")
     return redirect("/member_report")
+    
+
 
     
 @app.route("/get_rd_details_full/<rd_no>")
@@ -2512,6 +2896,7 @@ def transfer():
         trans_date = request.form["trans_date"]
         remark = request.form.get("remark") or ""
         source = request.form.get("source") or "Manual"
+        loan_reversal = request.form.get("loan_reversal")
 
         # ------------- VALIDATION -------------
         if from_acc_no == to_acc_no:
@@ -2535,9 +2920,24 @@ def transfer():
         from_kind = kind(from_acc_no)
         to_kind = kind(to_acc_no)
 
-        # ❌ SAFE RULES
-        if from_kind in ("RD", "FD", "LOAN"):
-            flash("❌ RD/FD/Loan से सीधे money निकालना allowed नहीं है", "danger")
+        # ❌ Loan → Loan block
+        if from_kind == "LOAN" and to_kind == "LOAN":
+            flash("❌ Loan से Loan transfer allowed नहीं है", "danger")
+            return redirect("/transfer")
+
+        # ❌ Loan debit only in reversal
+        if from_kind == "LOAN" and not loan_reversal:
+            flash("❌ Loan से पैसा transfer नहीं किया जा सकता", "danger")
+            return redirect("/transfer")
+
+        # ❌ RD debit block
+        if from_kind == "RD":
+            flash("❌ RD से पैसा transfer नहीं किया जा सकता", "danger")
+            return redirect("/transfer")
+
+        # ❌ FD debit block
+        if from_kind == "FD":
+            flash("❌ FD से पैसा transfer नहीं किया जा सकता", "danger")
             return redirect("/transfer")
 
         if to_kind == "FD":
@@ -2545,6 +2945,122 @@ def transfer():
             return redirect("/transfer")
 
         # ------------- START DB TRANSACTION -------------
+        # ===============================
+        # LOAN REVERSAL LOGIC
+        # ===============================
+
+        if from_kind == "LOAN" and loan_reversal:
+
+            if to_kind != "REG":
+                flash("❌ Loan reversal केवल Saving में allowed है", "danger")
+                return redirect("/transfer")
+
+            conn.autocommit = False
+
+            # Debit Loan
+            cur.execute("""
+                INSERT INTO loan_transactions
+                (member_no, loan_no, trans_type,
+                 amount, trans_date, remark)
+
+                VALUES (%s,%s,'Debit',%s,%s,%s)
+            """, (
+                from_member,
+                from_acc_no,
+                amount,
+                trans_date,
+                f"Loan Reversal to {to_acc_no} | {remark}"
+                
+            ))
+            # ⭐ Loan Outstanding Increase (Reversal)
+            
+            
+            from_acc_no = from_acc_no.split(" - ")[0].strip()
+
+            cur.execute("""
+                UPDATE loans
+                SET outstanding_principal =
+                        outstanding_principal + %s,
+                    total_payable =
+                        total_payable + %s,
+                    total_paid = total_paid  - %s,
+                    updated_on = NOW()
+                WHERE loan_no=%s
+            """, (
+                amount,
+                amount,
+                amount,
+                from_acc_no
+            ))
+            # Debit Loan
+            cur.execute("""
+                INSERT INTO loan_transactions
+                (member_no, loan_no, trans_type,
+                 amount, trans_date, remark)
+
+                VALUES (%s,%s,'Debit',%s,%s,%s)
+            """, (
+                from_member,
+                from_acc_no,
+                amount,
+                trans_date,
+                f"Loan Reversal to {to_acc_no} | {remark}"
+                
+            ))
+            # Get GL Code from loan
+            cur.execute("""
+            SELECT gl_code 
+            FROM loans 
+            WHERE loan_no=%s
+            """, (from_acc_no,))
+
+            gl_row = cur.fetchone()
+
+            if not gl_row:
+                raise Exception("Loan GL Code not found")
+
+            gl_code = gl_row[0]
+
+            # ⭐ Loan Head Debit (Reversal)
+            cur.execute("""
+            UPDATE loan_heads
+            SET amount = COALESCE(amount,0) - %s
+            WHERE id=%s
+            """, (
+                amount,
+                gl_code
+            ))
+
+            print("Loan Head Debit Rows:", cur.rowcount)
+            print("Rows updated:", cur.rowcount)
+
+            # Credit Saving
+            cur.execute("""
+                UPDATE accounts
+                SET balance = balance + %s
+                WHERE account_no=%s
+            """, (amount, to_acc_no))
+
+            cur.execute("""
+                INSERT INTO transactions
+                (member_no, account_no, trans_type,
+                 amount, trans_date, remark, source)
+
+                VALUES (%s,%s,'Credit',%s,%s,%s,%s)
+            """, (
+                to_member,
+                to_acc_no,
+                amount,
+                trans_date,
+                f"Loan Reversal from {from_acc_no} | {remark}",
+                source
+            ))
+
+            conn.commit()
+
+            flash("✅ Loan Reversal Success!", "success")
+
+            return redirect("/transfer")
         conn.autocommit = False
 
         # ---- 1. LOCK Source Account ----
@@ -2738,7 +3254,7 @@ def rd_pre_close():
 
         cur.execute("""
             UPDATE rd_accounts 
-            SET status='Pre Closed', closed_date=NOW()
+            SET status='Pre Closed', closed_date=NOW(),deduction_status='false'
             WHERE rd_account_no=%s
         """, (rd_account_no,))
 
@@ -3005,8 +3521,8 @@ def loan_new():
                  status, total_payable,first_guarantor_member_no, first_guarantor_name,
                  second_guarantor_member_no, second_guarantor_name,
                  third_guarantor_member_no, third_guarantor_name,
-                 fourth_guarantor_member_no, fourth_guarantor_name)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Active',%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                 fourth_guarantor_member_no, fourth_guarantor_name,deduction_status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Active',%s,%s,%s,%s,%s,%s,%s,%s,%s,'true')
             """, (
                 loan_no, member_no, member_name, loan_head, loan_head_id,
                 principal, interest_rate, tenure_months, emi_amount,
@@ -3052,16 +3568,16 @@ def loan_new():
                     session.get('user','system'), loan_head_id
                 ))
 
-                cur.execute("""
-                    INSERT INTO loan_transactions
-                    (loan_no, trans_type, amount, trans_date,
-                     remark, created_by, created_on, member_no, account_no, account_type, gl_head)
-                    VALUES (%s,'Credit',%s,NOW(),'Saving Account Credit',
-                    %s,NOW(),%s,%s,'Saving Account',%s)
-                """, (
-                    loan_no, saving_amount,
-                    session.get('user','system'), member_no, saving_acc_no, loan_head_id
-                ))
+                #cur.execute("""
+                #    INSERT INTO loan_transactions
+                #    (loan_no, trans_type, amount, trans_date,
+                #     remark, created_by, created_on, member_no, account_no, account_type, gl_head)
+                #    VALUES (%s,'Credit',%s,NOW(),'Saving Account Credit',
+                #    %s,NOW(),%s,%s,'Saving Account',%s)
+                #""", (
+                #    loan_no, saving_amount,
+                #    session.get('user','system'), member_no, saving_acc_no, loan_head_id
+                #))
 
             # =========== Share Credit ===========
             if share_amount > 0:
@@ -3083,17 +3599,17 @@ def loan_new():
                     session.get('user','system'), loan_head_id
                 ))
 
-                cur.execute("""
-                    INSERT INTO loan_transactions
-                    (loan_no, trans_type, amount, trans_date, remark,
-                     created_by, created_on, member_no, account_no, account_type, gl_head)
-                    VALUES (%s,'Credit',%s,NOW(),'Share A/c Credit',
-                    %s,NOW(),%s,%s,'Share Account',%s)
-                """, (
-                    loan_no, share_amount,
-                    session.get('user','system'),
-                    member_no, share_acc_no, loan_head_id
-                ))
+                #cur.execute("""
+                #    INSERT INTO loan_transactions
+                #    (loan_no, trans_type, amount, trans_date, remark,
+                #     created_by, created_on, member_no, account_no, account_type, gl_head)
+                #    VALUES (%s,'Credit',%s,NOW(),'Share A/c Credit',
+                #    %s,NOW(),%s,%s,'Share Account',%s)
+                #""", (
+                #    loan_no, share_amount,
+                #    session.get('user','system'),
+                #    member_no, share_acc_no, loan_head_id
+                #))
 
             # =========== Home Loan Credit ===========
             if home_loan_amount > 0:
@@ -3112,17 +3628,17 @@ def loan_new():
                     session.get('user','system'), loan_head_id
                 ))
 
-                cur.execute("""
-                    INSERT INTO loan_transactions
-                    (loan_no, trans_type, amount, trans_date, remark,
-                     created_by, created_on, member_no, account_no, account_type, gl_head)
-                    VALUES (%s,'Credit',%s,NOW(),'Home Loan A/c Credit',
-                    %s,NOW(),%s,%s,'Home Loan Account',%s)
-                """, (
-                    loan_no, home_loan_amount,
-                    session.get('user','system'),
-                    member_no, home_acc_no, loan_head_id
-                ))
+                #cur.execute("""
+                #    INSERT INTO loan_transactions
+                #    (loan_no, trans_type, amount, trans_date, remark,
+                #     created_by, created_on, member_no, account_no, account_type, gl_head)
+                #    VALUES (%s,'Credit',%s,NOW(),'Home Loan A/c Credit',
+                #    %s,NOW(),%s,%s,'Home Loan Account',%s)
+                #""", (
+                #    loan_no, home_loan_amount,
+                #    session.get('user','system'),
+                #    member_no, home_acc_no, loan_head_id
+                #))
 
             conn.commit()
             flash(f"Loan Created Successfully! Loan No: {loan_no}", "success")
@@ -3210,6 +3726,8 @@ def emi_repay():
             pay_date_str = request.form.get("pay_date")
             pay_date = datetime.strptime(pay_date_str, "%Y-%m-%d") if pay_date_str else datetime.now()
             pay_mode = request.form.get("pay_mode")
+            
+            
 
             cur.execute("""
                 SELECT loan_no, member_no, member_name, interest_rate, emi,
@@ -3271,147 +3789,173 @@ def emi_repay():
                     last_month = date(loan_start_date.year, loan_start_date.month, 1)
                     next_month_year = add_month(last_month)
 
-                months_gap = (pay_date.year - last_month.year) * 12 + (pay_date.month - last_month.month)
+                #months_gap = (pay_date.year - last_month.year) * 12 + (pay_date.month - last_month.month)
 
-                if months_gap > 1:
-                    missing_date = last_month
-                    for i in range(1, months_gap):
-                        missing_date = add_month(missing_date)
+                #if months_gap > 1:
+                #    missing_date = last_month
+                #    for i in range(1, months_gap):
+                #        missing_date = add_month(missing_date)
 
-                        cur.execute("""
-                            SELECT 1 FROM interest_history
-                            WHERE account_no=%s AND month_year=%s
-                            LIMIT 1
-                        """, (loan_no_db, missing_date))
-                        if cur.fetchone():
-                            continue
+                #        cur.execute("""
+                #            SELECT 1 FROM interest_history
+                #            WHERE account_no=%s AND month_year=%s
+                #            LIMIT 1
+                #        """, (loan_no_db, missing_date))
+                #        if cur.fetchone():
+                #            continue
 
-                        missing_interest = (
-                            outstanding * Decimal(str(int_rate)) /
-                            Decimal('12') / Decimal('100')
-                        ).quantize(Decimal("0.01"))
+                #        missing_interest = (
+                #            outstanding * Decimal(str(int_rate)) /
+                #            Decimal('12') / Decimal('100')
+                #        ).quantize(Decimal("0.01"))
 
-                        cur.execute("""
-                            INSERT INTO interest_history
-                            (account_type, account_no, member_no, member_name,
-                             month_year, principal, interest_rate,
-                             monthly_interest, added_to_loan, created_on)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,false,NOW())
-                        """, (
-                            "Loan", loan_no_db, member_no, member_name,
-                            missing_date, outstanding,
-                            Decimal(str(int_rate)), missing_interest
-                        ))
+                #        cur.execute("""
+                #            INSERT INTO interest_history
+                #            (account_type, account_no, member_no, member_name,
+                #             month_year, principal, interest_rate,
+                #             monthly_interest, added_to_loan, created_on)
+                #            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,false,NOW())
+                #        """, (
+                #            "Loan", loan_no_db, member_no, member_name,
+                #            missing_date, outstanding,
+                #            Decimal(str(int_rate)), missing_interest
+                #        ))
 
-                        if missing_date.month == 3 and loan_head_name != "विविध क़र्ज़":
-                            fy_year = missing_date.year
+                #        if missing_date.month == 3 and loan_head_name != "विविध क़र्ज़":
+                #            fy_year = missing_date.year
 
-                            cur.execute("""
-                                SELECT COALESCE(SUM(monthly_interest),0)
-                                FROM interest_history
-                                WHERE account_no=%s
-                                  AND month_year >= %s
-                                  AND month_year <= %s
-                                  AND added_to_loan = false
-                            """, (
-                                loan_no_db,
-                                date(fy_year - 1, 4, 1),
-                                date(fy_year, 3, 31)
-                            ))
-                            fy_interest = Decimal(cur.fetchone()[0] or 0).quantize(Decimal("0.01"))
+                #            cur.execute("""
+                #                SELECT COALESCE(SUM(monthly_interest),0)
+                #                FROM interest_history
+                #                WHERE account_no=%s
+                #                  AND month_year >= %s
+                #                  AND month_year <= %s
+                #                  AND added_to_loan = false
+                #            """, (
+                #                loan_no_db,
+                #                date(fy_year - 1, 4, 1),
+                #                date(fy_year, 3, 31)
+                #            ))
+                #            fy_interest = Decimal(cur.fetchone()[0] or 0).quantize(Decimal("0.01"))
 
-                            if fy_interest > 0:
-                                outstanding += fy_interest
-                                total_payable += fy_interest
+                #            if fy_interest > 0:
+                #                outstanding += fy_interest
+                #                total_payable += fy_interest
 
-                                cur.execute("""
-                                    UPDATE interest_history
-                                    SET added_to_loan = true
-                                    WHERE account_no=%s
-                                      AND month_year >= %s
-                                      AND month_year <= %s
-                                      AND added_to_loan = false
-                                """, (
-                                    loan_no_db,
-                                    date(fy_year - 1, 4, 1),
-                                    date(fy_year, 3, 31)
-                                ))
+                #                cur.execute("""
+                #                    UPDATE interest_history
+                #                    SET added_to_loan = true
+                #                    WHERE account_no=%s
+                #                      AND month_year >= %s
+                #                      AND month_year <= %s
+                #                      AND added_to_loan = false
+                #                """, (
+                #                    loan_no_db,
+                #                    date(fy_year - 1, 4, 1),
+                #                    date(fy_year, 3, 31)
+                #                ))
 
-                                cur.execute("""
-                                    UPDATE loans
-                                    SET outstanding_principal=%s,
-                                        total_payable=%s,
-                                        updated_on=NOW()
-                                    WHERE loan_no=%s
-                                """, (outstanding, total_payable, loan_no_db))
+                #                cur.execute("""
+                #                    UPDATE loans
+                #                    SET outstanding_principal=%s,
+                #                        total_payable=%s,
+                #                        updated_on=NOW()
+                #                    WHERE loan_no=%s
+                #                """, (outstanding, total_payable, loan_no_db))
 
-                    next_month_year = add_month(missing_date)
+                #    next_month_year = add_month(missing_date)
 
-                monthly_interest = (
-                    outstanding * Decimal(str(int_rate)) /
-                    Decimal('12') / Decimal('100')
-                ).quantize(Decimal("0.01"))
+                #monthly_interest = (
+                #    outstanding * Decimal(str(int_rate)) /
+                #    Decimal('12') / Decimal('100')
+                #).quantize(Decimal("0.01"))
 
-                cur.execute("""
-                    SELECT 1 FROM interest_history
-                    WHERE account_no=%s AND month_year=%s
-                    LIMIT 1
-                """, (loan_no_db, next_month_year))
+                #cur.execute("""
+                #    SELECT 1 FROM interest_history
+                #    WHERE account_no=%s AND month_year=%s
+                #    LIMIT 1
+                #""", (loan_no_db, next_month_year))
 
-                if not cur.fetchone():
-                    cur.execute("""
-                        INSERT INTO interest_history
-                        (account_type, account_no, member_no, member_name,
-                         month_year, principal, interest_rate,
-                         monthly_interest, added_to_loan, created_on)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,false,NOW())
-                    """, (
-                        "Loan", loan_no_db, member_no, member_name,
-                        next_month_year, outstanding,
-                        Decimal(str(int_rate)), monthly_interest
-                    ))
+                #if not cur.fetchone():
+                #    cur.execute("""
+                #        INSERT INTO interest_history
+                #        (account_type, account_no, member_no, member_name,
+                #         month_year, principal, interest_rate,
+                #         monthly_interest, added_to_loan, created_on)
+                #        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,false,NOW())
+                #    """, (
+                #        "Loan", loan_no_db, member_no, member_name,
+                #        next_month_year, outstanding,
+                #        Decimal(str(int_rate)), monthly_interest
+                #    ))
+                
+                #############YE BAHOT IMP LOGIC THA ABHI ABHI HATAYA HAI 
 
-                if next_month_year.month == 3 and loan_head_name != "विविध क़र्ज़":
-                    fy_year = next_month_year.year
+                #if next_month_year.month == 3 and loan_head_name != "विविध क़र्ज़":
+                #    fy_year = next_month_year.year
 
-                    cur.execute("""
-                        SELECT COALESCE(SUM(monthly_interest),0)
-                        FROM interest_history
-                        WHERE account_no=%s
-                          AND month_year >= %s
-                          AND month_year <= %s
-                          AND added_to_loan = false
-                    """, (
-                        loan_no_db,
-                        date(fy_year - 1, 4, 1),
-                        date(fy_year, 3, 31)
-                    ))
-                    accum_interest = Decimal(cur.fetchone()[0] or 0).quantize(Decimal("0.01"))
+                #    cur.execute("""
+                #        SELECT COALESCE(SUM(monthly_interest),0)
+                #        FROM interest_history
+                #        WHERE account_no=%s
+                #          AND month_year >= %s
+                #          AND month_year <= %s
+                #          AND added_to_loan = false
+                #    """, (
+                #        loan_no_db,
+                #        date(fy_year - 1, 4, 1),
+                #        date(fy_year, 3, 31)
+                #    ))
+                #    accum_interest = Decimal(cur.fetchone()[0] or 0).quantize(Decimal("0.01"))
 
-                    if accum_interest > 0:
-                        outstanding += accum_interest
-                        total_payable += accum_interest
+                #    if accum_interest > 0:
+                #        outstanding += accum_interest
+                #        total_payable += accum_interest
 
-                        cur.execute("""
-                            UPDATE interest_history
-                            SET added_to_loan = true
-                            WHERE account_no=%s
-                              AND month_year >= %s
-                              AND month_year <= %s
-                              AND added_to_loan = false
-                        """, (
-                            loan_no_db,
-                            date(fy_year - 1, 4, 1),
-                            date(fy_year, 3, 31)
-                        ))
+                #        cur.execute("""
+                #            UPDATE interest_history
+                #            SET added_to_loan = true
+                #            WHERE account_no=%s
+                #              AND month_year >= %s
+                #              AND month_year <= %s
+                #              AND added_to_loan = false
+                #        """, (
+                #            loan_no_db,
+                #            date(fy_year - 1, 4, 1),
+                #            date(fy_year, 3, 31)
+                #        ))
 
-                        cur.execute("""
-                            UPDATE loans
-                            SET outstanding_principal=%s,
-                                total_payable=%s,
-                                updated_on=NOW()
-                            WHERE loan_no=%s
-                        """, (outstanding, total_payable, loan_no_db))
+                #        cur.execute("""
+                #            UPDATE loans
+                #            SET outstanding_principal=%s,
+                #                total_payable=%s,
+                #                updated_on=NOW()
+                #            WHERE loan_no=%s
+                #        """, (outstanding, total_payable, loan_no_db))
+                        
+                #        # 🔵 Year-end interest addition tracking entry
+
+                #        remark_text_interest = (
+                #            f"Year-end interest added to principal: {accum_interest}"
+                #        )
+
+                #        cur.execute("""
+                #            INSERT INTO loan_transactions
+                #            (loan_no, trans_type, amount, trans_date, remark,
+                #             created_by, created_on, member_no,
+                #             account_no, account_type, gl_head)
+                #            VALUES (%s,'Debit',%s,%s,%s,%s,NOW(),%s,%s,%s,%s)
+                #        """, (
+                #            loan_no_db,
+                #            accum_interest,
+                #            date(fy_year, 3, 31),
+                #            remark_text_interest,
+                #            session.get('user','system'),
+                #            member_no,
+                #            None,
+                #            "Loan",
+                #            gl_code
+                #        ))
 
                 future_outstanding = outstanding - min(emi_val, outstanding)
 
@@ -3492,7 +4036,7 @@ def emi_repay():
                 (loan_no, trans_type, amount, trans_date, remark,
                  created_by, created_on, member_no,
                  account_no, account_type, gl_head)
-                VALUES (%s,'REPAY',%s,%s,%s,%s,NOW(),%s,%s,%s,%s)
+                VALUES (%s,'Credit',%s,%s,%s,%s,NOW(),%s,%s,%s,%s)
             """, (
                 loan_no_db, pay_principal, pay_date.date(),
                 remark_text, session.get('user','system'),
@@ -3515,6 +4059,8 @@ def emi_repay():
                 pay_principal, loan_status,
                 loan_no_db
             ))
+            cur.execute("UPDATE loan_heads SET amount = amount + %s WHERE id=%s",
+                        (pay_principal, gl_code))
 
             conn.commit()
             flash("EMI paid successfully", "success")
@@ -3541,7 +4087,6 @@ def emi_repay():
 
 
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import date
 from decimal import Decimal
 
@@ -3612,21 +4157,253 @@ def auto_generate_monthly_loan_interest():
         conn.close()
 
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(
-    auto_generate_monthly_loan_interest,
-    trigger='cron',        # har mahine 1 tareekh
-    hour=23,
-    minute=55
-)
+#scheduler = BackgroundScheduler()
+#scheduler.add_job(
+#    auto_generate_monthly_loan_interest,
+#    trigger='cron',        # har mahine last tareekh
+#    day='last',
+#    hour=23,
+#    minute=55
+#)
 
 @app.route("/test/run-interest-job", methods=["POST"])
 def test_interest_job():
     auto_generate_monthly_loan_interest()
     flash("Interest job successfully executed", "success")
-    return redirect(url_for("emi_repay"))
+    return redirect(url_for("dashboard"))
+    
+    
 
+def credit_annual_loan_interest():
 
+    print("FY Interest Credit Started")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    today = date.today()
+    
+    # ✅ GL → Bank Mapping
+    gl_bank_map = {
+        '84': '612',
+        '34': '614',
+        '35': '616',
+        '41': '613',
+        '42': '615'
+    }
+
+    if today.month >= 4:
+        fy_start = date(today.year, 4, 1)
+        fy_end   = date(today.year + 1, 3, 31)
+    else:
+        fy_start = date(today.year - 1, 4, 1)
+        fy_end   = date(today.year, 3, 31)
+
+    print("FY START:", fy_start)
+    print("FY END:", fy_end)
+
+    # 🔴 loan_head bhi fetch karna hai
+    cur.execute("""
+        SELECT loan_no,
+               member_no,
+               gl_code,
+               loan_head
+        FROM loans
+        WHERE status='Active'
+    """)
+
+    loans = cur.fetchall()
+    
+    # ✅ Counters
+    skip_count = 0
+    processed_count = 0
+
+    for loan_no, member_no, gl_code, loan_head_name in loans:
+
+        # 🟡 Skip विविध कर्ज
+        if loan_head_name == "विविध क़र्ज़":
+            skip_count += 1
+            continue
+
+        # Get FY interest
+        cur.execute("""
+            SELECT COALESCE(SUM(monthly_interest),0)
+            FROM interest_history
+            WHERE account_no=%s
+            AND month_year >= %s
+            AND month_year <= %s
+            AND added_to_loan=false
+        """, (
+            loan_no,
+            fy_start,
+            fy_end
+        ))
+
+        fy_interest = Decimal(cur.fetchone()[0] or 0)
+
+        if fy_interest > 0:
+            processed_count += 1
+
+            print("Loan:", loan_no,
+                  "FY Interest:", fy_interest)
+
+            # ✅ Add to principal
+            cur.execute("""
+                UPDATE loans
+                SET outstanding_principal =
+                    outstanding_principal + %s,
+                    total_payable =
+                    total_payable + %s,
+                    updated_on=NOW()
+                WHERE loan_no=%s
+            """, (
+                fy_interest,
+                fy_interest,
+                loan_no
+            ))
+
+            # ✅ Mark interest added
+            cur.execute("""
+                UPDATE interest_history
+                SET added_to_loan=true
+                WHERE account_no=%s
+                AND month_year >= %s
+                AND month_year <= %s
+                AND added_to_loan=false
+            """, (
+                loan_no,
+                fy_start,
+                fy_end
+            ))
+
+            # ✅ Loan transaction entry
+
+            remark_text = (
+                f"FY Interest added to principal: "
+                f"{fy_interest}"
+            )
+
+            cur.execute("""
+                INSERT INTO loan_transactions
+                (loan_no,
+                 trans_type,
+                 amount,
+                 trans_date,
+                 remark,
+                 created_by,
+                 created_on,
+                 member_no,
+                 account_no,
+                 account_type,
+                 gl_head)
+                VALUES (
+                    %s,
+                    'Debit',
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    NOW(),
+                    %s,
+                    NULL,
+                    'Loan',
+                    %s
+                )
+            """, (
+                loan_no,
+                fy_interest,
+                fy_end,
+                remark_text,
+                'System',
+                member_no,
+                gl_code
+            ))
+            
+            # ✅ Bank Transaction Entry (NEW PART)
+
+            bank_id = gl_bank_map.get(str(gl_code))
+
+            if bank_id:
+
+                bank_remark = (
+                    f"FY Interest credited from Loan "
+                    f"{loan_no}: {fy_interest}"
+                )
+
+                cur.execute("""
+                    INSERT INTO bank_transactions
+                    (
+                        loan_no,
+                        bank_name,
+                        trans_type,
+                        amount,
+                        trans_date,
+                        remark,
+                        created_by,
+                        member_no,
+                        bank_id,
+                        created_on
+                    )
+                    VALUES (
+                        %s,
+                        %s,
+                        'Credit',
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        NOW()
+                    )
+                """, (
+                    loan_no,
+                    'Loan Interest Credit',
+                    fy_interest,
+                    fy_end,
+                    bank_remark,
+                    'System',
+                    member_no,
+                    bank_id
+                ))
+
+                print(
+                    "Bank Credit Entry Done:",
+                    loan_no,
+                    "Bank:",
+                    bank_id,
+                    "Amount:",
+                    fy_interest
+                )
+
+            else:
+
+                print(
+                    "No bank mapping found for GL:",
+                    gl_code,
+                    "Loan:",
+                    loan_no
+                )
+
+    # ✅ Final Summary Print
+    if skip_count > 0:
+        print(
+            f"Skipping FY add for 'विविध क़र्ज़' loans:",
+            skip_count,
+            "loans skipped"
+        )
+
+    print(
+        "Total Loans Processed:",
+        processed_count
+    )
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    print("FY Interest Credit Completed")
 
 
 
@@ -4161,7 +4938,7 @@ def confirm_preclose():
         # -----------------------------
         cur.execute("""
             UPDATE loans
-            SET status='Closed',
+            SET status='Closed',deduction_status='false',
                 outstanding_principal=0,
                 total_payable=0,
                 total_paid = COALESCE(total_paid,0) + %s
@@ -4658,9 +5435,9 @@ def loan_modify_apply():
         cur.execute("""
             INSERT INTO loan_transactions
             (loan_no, trans_type, amount, trans_date, remark, created_by, created_on, member_no, account_no, account_type, gl_head)
-            VALUES (%s, 'EMI_MODIFIED', %s, CURRENT_DATE, %s, %s, NOW(), %s, %s, %s, %s)
+            VALUES (%s, 'EMI_MODIFIED', 0, CURRENT_DATE, %s, %s, NOW(), %s, %s, %s, %s)
         """, (
-            loan_no_db, final_emi, remark, changed_by, member_no, None, None, None
+            loan_no_db, remark, changed_by, member_no, None, None, None
         ))
 
         # Update loans table
@@ -6114,6 +6891,7 @@ def deduction_form():
             SELECT DISTINCT loan_head
             FROM loans
             WHERE TRIM(LOWER(status)) <> 'closed'
+                AND TRIM(LOWER(deduction_status)) = 'true'
             ORDER BY loan_head
         """)
         loan_types = [r[0] for r in cur.fetchall()]
@@ -6219,6 +6997,7 @@ def deduction_form():
         SELECT DISTINCT loan_head
         FROM loans
         WHERE TRIM(LOWER(status)) <> 'closed'
+            AND TRIM(LOWER(deduction_status)) = 'true'
         ORDER BY loan_head
     """)
     loan_types = [r[0] for r in cur.fetchall()]
@@ -6229,48 +7008,78 @@ def deduction_form():
             m.member_no,
             m.member_name_hin,
             m.employee_no,
-            d.departcod,
+
+            sm.subdivision_department_code,
+
             COALESCE(m.compulsory_deposit_amt,0),
+
             COALESCE(
                 SUM(
                     CASE
                         WHEN r.monthly_deposit > 0 THEN r.monthly_deposit
-                        WHEN r.deposit_amount > 0 AND r.duration_months > 0
+                        WHEN r.deposit_amount > 0
+                             AND r.duration_months > 0
                         THEN r.deposit_amount / r.duration_months
                         ELSE 0
                     END
                 ),0
             )
+
         FROM members m
-        LEFT JOIN department_master_new d
-            ON d.subd_cod::text = m.division
+
+        LEFT JOIN subdivision_master sm
+            ON sm.subdivision_code::text = m.division
+
+        LEFT JOIN division_master dm
+            ON dm.division_code::text = sm.division_code::text
+
+        LEFT JOIN company_master cm
+            ON cm.company_code::text = dm.company_code::text
+
         LEFT JOIN rd_accounts r
             ON r.member_no = m.member_no
            AND r.status = 'Active'
+           AND TRIM(LOWER(r.deduction_status)) = 'true'
+
         WHERE m.member_type = 'Member'
           AND m.status = 'Active'
           AND m.employee_no IS NOT NULL
           AND m.employee_no <> ''
           AND TRIM(LOWER(m.old_member_no)) = 'true'
+
+          -- 🔴 FINAL SAFE FILTER
+          AND TRIM(m.circle::text) != '10'
+
         GROUP BY
             m.member_no,
             m.member_name_hin,
             m.employee_no,
-            d.departcod,
+            sm.subdivision_department_code,
             m.compulsory_deposit_amt
+
         ORDER BY m.employee_no
     """)
     members = cur.fetchall()
 
-    # 🔹 Loan EMI map
+    # 🔹 Loan EMI map (FIXED - outstanding logic)
     cur.execute("""
-        SELECT member_no, loan_head, emi
+        SELECT member_no, loan_head, emi, outstanding_principal
         FROM loans
         WHERE TRIM(LOWER(status)) <> 'closed'
+            AND TRIM(LOWER(deduction_status)) = 'true'
     """)
+
     loan_map = {}
-    for m, h, e in cur.fetchall():
-        loan_map.setdefault(m, {})[h] = e or 0
+
+    for m, h, emi, outstanding in cur.fetchall():
+
+        emi = float(emi or 0)
+        outstanding = float(outstanding or 0)
+
+        # 🔥 FINAL FIX (MAIN LINE)
+        amount = min(emi, outstanding)
+
+        loan_map.setdefault(m, {})[h] = amount
 
     cur.close()
     conn.close()
@@ -6281,7 +7090,6 @@ def deduction_form():
         loan_types=loan_types,
         loan_map=loan_map
     )
-
 
 
 @app.route("/save_deductions_batch", methods=["POST"])
@@ -6456,47 +7264,42 @@ def deduction_upload_page():
 
 @app.route("/deduction/status")
 def deduction_status():
-    month = request.args.get("month")
-    year  = request.args.get("year")
 
     conn = get_db()
     cur = conn.cursor()
 
-    query = """
+    sel_month = request.args.get("month")
+    sel_year = request.args.get("year")
+
+    where_clause = ""
+    params = []
+
+    if sel_month:
+        where_clause += " AND u.month=%s"
+        params.append(sel_month)
+
+    if sel_year:
+        where_clause += " AND u.year=%s"
+        params.append(sel_year)
+
+    query = f"""
         SELECT 
             u.employee_no,
             u.month,
             u.year,
-            u.total_deducted_amount,
             COALESCE(SUM(s.amount),0) AS scheduled_amount,
-            CASE 
-                WHEN COALESCE(SUM(s.amount),0) = u.total_deducted_amount 
-                THEN 'COMPLETE'
-                ELSE 'PARTIAL'
-            END AS status
+            MAX(u.total_deducted_amount) AS uploaded_amount   -- 🔥 FIX
+
         FROM employee_deduction_upload u
+
         LEFT JOIN employee_deduction_schedule s
-            ON s.employee_no = u.employee_no
-           AND s.month = u.month
-           AND s.year = u.year
-    """
+            ON TRIM(u.employee_no) = TRIM(s.employee_no)
+            AND s.month = u.month
+            AND s.year = u.year
 
-    cond = []
-    params = []
+        WHERE 1=1 {where_clause}
 
-    if month:
-        cond.append("u.month = %s")
-        params.append(month)
-
-    if year:
-        cond.append("u.year = %s")
-        params.append(year)
-
-    if cond:
-        query += " WHERE " + " AND ".join(cond)
-
-    query += """
-        GROUP BY u.employee_no, u.month, u.year, u.total_deducted_amount
+        GROUP BY u.employee_no, u.month, u.year
         ORDER BY u.employee_no
     """
 
@@ -6506,18 +7309,22 @@ def deduction_status():
     complete = []
     partial = []
 
-    for r in rows:
+    for emp, m, y, sch_amt, up_amt in rows:
+
+        sch_amt = float(sch_amt or 0)
+        up_amt = float(up_amt or 0)
+
         data = {
-            "employee_no": r[0],
-            "month": r[1],
-            "year": r[2],
-            "uploaded_amount": r[3],
-            "scheduled_amount": r[4]
+            "employee_no": emp,
+            "month": m,
+            "year": y,
+            "scheduled_amount": sch_amt,
+            "uploaded_amount": up_amt
         }
 
-        if r[5] == "COMPLETE":
+        if up_amt == sch_amt and sch_amt > 0:
             complete.append(data)
-        else:
+        elif up_amt > 0:
             partial.append(data)
 
     cur.close()
@@ -6529,8 +7336,8 @@ def deduction_status():
         partial=partial,
         complete_count=len(complete),
         partial_count=len(partial),
-        sel_month=month,
-        sel_year=year
+        sel_month=sel_month,
+        sel_year=sel_year
     )
 
 
@@ -6630,271 +7437,1005 @@ def post_anivarya_deduction():
         
 @app.route("/deduction/posting/all", methods=["POST"])
 def post_all_deductions():
+
     from decimal import Decimal
-    from datetime import datetime
+    import traceback
+
+    print("🔥 POSTING ROUTE HIT")
 
     try:
         conn = get_db()
         cur = conn.cursor()
 
-        anivarya_count = 0
-        rd_count = 0
-
-        # =========================================================
-        # 🔹 PART 1: ANIVARYA SANCHAY POSTING
-        # =========================================================
+        # ================= MONTH / YEAR =================
         cur.execute("""
-            SELECT employee_no, month, year, SUM(amount)
-            FROM employee_deduction_schedule
-            WHERE deduction_head='अनिवार्य संचय'
-              AND COALESCE(posted,false)=false
-            GROUP BY employee_no, month, year
+            SELECT DISTINCT month, year
+            FROM employee_deduction_upload
+            ORDER BY year DESC, month DESC
+            LIMIT 1
         """)
-        rows = cur.fetchall()
+        row = cur.fetchone()
+        if not row:
+            return {"status": "error", "message": "No upload data"}
 
-        for emp_no, month, year, total_amount in rows:
+        month, year = row
+        print("📅", month, year)
 
-            cur.execute("SELECT member_no FROM members WHERE employee_no=%s", (emp_no,))
-            r = cur.fetchone()
-            if not r:
+        # ================= UPLOAD =================
+        cur.execute("""
+            SELECT employee_no, total_deducted_amount
+            FROM employee_deduction_upload
+            WHERE month=%s AND year=%s
+        """, (month, year))
+
+        upload_map = {
+            str(emp).strip(): Decimal(amt or 0)
+            for emp, amt in cur.fetchall()
+        }
+
+        remaining_map = upload_map.copy()
+        print("📦", remaining_map)
+
+        # ================= SCHEDULE =================
+        cur.execute("""
+            SELECT id, employee_no, member_no, deduction_head, deduction_type, amount
+            FROM employee_deduction_schedule
+            WHERE month=%s AND year=%s
+              AND (posted IS NULL OR posted=false)
+            ORDER BY id
+        """, (month, year))
+
+        schedules = cur.fetchall()
+        print("📊 TOTAL:", len(schedules))
+
+        if not schedules:
+            return {"status": "error", "message": "No schedule"}
+
+        # ================= MAIN LOOP =================
+        for sch_id, emp_no, member_no, head, dtype, sch_amt in schedules:
+
+            member_no = str(member_no).strip()
+            head = (head or "").strip()
+            sch_amt = Decimal(sch_amt or 0)
+
+            remaining = remaining_map.get(emp_no, Decimal(0))
+
+            print("➡", member_no, head, sch_amt, "Remaining:", remaining)
+
+            if remaining <= 0:
                 continue
-            member_no = r[0]
 
+            # ===== ANIVARYA =====
+            if head == "अनिवार्य संचय":
+
+                pay = min(sch_amt, remaining)
+
+                cur.execute("""
+                    SELECT account_no
+                    FROM accounts
+                    WHERE member_no=%s AND status='Active'
+                    ORDER BY account_no LIMIT 1
+                """, (member_no,))
+                acc = cur.fetchone()
+                if not acc:
+                    continue
+
+                acc_no = acc[0]
+
+                cur.execute("""
+                    SELECT COALESCE(balance,0)
+                    FROM accounts WHERE account_no=%s
+                """, (acc_no,))
+                row = cur.fetchone()
+                bal = Decimal(row[0] if row and len(row) > 0 else 0)
+
+                cur.execute("""
+                    UPDATE accounts SET balance=%s WHERE account_no=%s
+                """, (bal + pay, acc_no))
+
+                cur.execute("""
+                    INSERT INTO transactions
+                    (member_no, account_no, trans_type, amount, remark, source, created_by)
+                    VALUES (%s,%s,'Credit',%s,%s,'Payroll','system')
+                """, (member_no, acc_no, float(pay), f"Anivarya Deduction ({month}/{year})"))
+
+                remaining_map[emp_no] = remaining - pay
+
+           # ===== RD (FINAL FIXED - MULTI + NO ERROR) =====
+            elif dtype == "RD":
+
+                # 🔥 SAFE member_no
+                if not member_no:
+                    print("❌ INVALID MEMBER:", member_no)
+                    continue
+
+                member_no = str(member_no).strip()
+
+                remaining_rd = min(sch_amt, remaining)
+
+                # 🔥 सभी RD accounts fetch
+                cur.execute("""
+                    SELECT rd_account_no, installments_paid, total_installments, maturity_amount, monthly_deposit
+                    FROM rd_accounts
+                    WHERE member_no=%s AND status='Active'
+                    ORDER BY rd_account_no
+                """, (member_no,))
+
+                rd_list = cur.fetchall()
+
+                for rd in rd_list:
+
+                    if remaining_rd <= 0:
+                        break
+
+                    rd_no = rd[0]
+                    paid = int(rd[1] or 0)
+                    total = int(rd[2] or 0)
+                    maturity = Decimal(rd[3] or 0)
+                    monthly = Decimal(rd[4] or 0)
+
+                    pay = min(monthly, remaining_rd)
+
+                    if pay <= 0:
+                        continue
+
+                    print(f"💳 RD PAY → {rd_no} : {pay}")
+
+                    # 🔹 RD transaction
+                    cur.execute("""
+                        INSERT INTO transactions
+                        (member_no, rd_account_no, trans_type, amount, remark, source, created_by)
+                        VALUES (%s,%s,'Credit',%s,%s,'Payroll','system')
+                    """, (
+                        member_no,
+                        rd_no,
+                        float(pay),
+                        f"RD Installment ({rd_no}) ({month}/{year})"
+                    ))
+
+                    # 🔹 installment +1
+                    cur.execute("""
+                        UPDATE rd_accounts
+                        SET installments_paid = COALESCE(installments_paid,0)+1
+                        WHERE rd_account_no=%s
+                    """, (rd_no,))
+
+                    remaining_rd -= pay
+
+                    # 🔥 updated count
+                    cur.execute("""
+                        SELECT installments_paid, total_installments
+                        FROM rd_accounts
+                        WHERE rd_account_no=%s
+                    """, (rd_no,))
+
+                    row = cur.fetchone()
+                    updated_paid = int(row[0] or 0)
+                    total = int(row[1] or 0)
+
+                    # 🔥 RD CLOSE + MATURITY
+                    if updated_paid >= total:
+
+                        print("🎉 RD CLOSED:", rd_no)
+
+                        cur.execute("""
+                            UPDATE rd_accounts
+                            SET status='Closed'
+                            WHERE rd_account_no=%s
+                        """, (rd_no,))
+
+                        # 🔥 SAFE member_no (again)
+                        member_no_clean = str(member_no).strip()
+
+                        print("👉 MEMBER_NO:", member_no_clean)
+
+                        # 🔥 SAFE query (NO mogrify)
+                        cur.execute("""
+                            SELECT account_no, COALESCE(balance,0)
+                            FROM accounts
+                            WHERE member_no=%s
+                              AND account_type ILIKE '%%Saving%%'
+                              AND status='Active'
+                            LIMIT 1
+                        """, [member_no_clean])
+
+                        acc = cur.fetchone()
+                        print("🔍 SAVING FETCH:", acc)
+
+                        if acc and len(acc) >= 2:
+                            acc_no = acc[0]
+                            bal = Decimal(acc[1] or 0)
+
+                            # 🔹 maturity credit
+                            cur.execute("""
+                                UPDATE accounts
+                                SET balance=%s
+                                WHERE account_no=%s
+                            """, (bal + maturity, acc_no))
+
+                            # 🔹 transaction entry
+                            cur.execute("""
+                                INSERT INTO transactions
+                                (member_no, account_no, trans_type, amount, remark, source, created_by)
+                                VALUES (%s,%s,'Credit',%s,%s,'RD','system')
+                            """, (
+                                member_no_clean,
+                                acc_no,
+                                float(maturity),
+                                f"RD Maturity Credit ({rd_no})"
+                            ))
+
+                # 🔥 FINAL remaining update
+                remaining_map[emp_no] = remaining - (sch_amt - remaining_rd)
+
+                # 🔥 UPDATED VALUE DB से लो
+                cur.execute("""
+                    SELECT installments_paid, total_installments
+                    FROM rd_accounts
+                    WHERE rd_account_no=%s
+                """, (rd_no,))
+
+                row = cur.fetchone()
+                updated_paid = int(row[0] or 0)
+                total = int(row[1] or 0)
+
+                # 🔥 RD CLOSE + MATURITY
+                if updated_paid >= total:
+
+                    print("🎉 RD CLOSED:", rd_no)
+
+                    # 🔹 close RD
+                    cur.execute("""
+                        UPDATE rd_accounts
+                        SET status='Closed'
+                        WHERE rd_account_no=%s
+                    """, (rd_no,))
+
+                    # 🔥 SAVING FETCH (FIXED - mogrify)
+                    sql = cur.mogrify("""
+                        SELECT account_no, COALESCE(balance,0)
+                        FROM accounts
+                        WHERE member_no=%s
+                          AND account_type ILIKE '%%Saving%%'
+                          AND status='Active'
+                        LIMIT 1
+                    """, (member_no,))
+
+                    cur.execute(sql)
+
+                    acc = cur.fetchone()
+
+                    print("🔍 SAVING FETCH:", acc)
+
+                    if acc:
+                        acc_no = acc[0]
+                        bal = Decimal(acc[1] if len(acc) > 1 else 0)
+
+                        # 🔹 maturity credit
+                        cur.execute("""
+                            UPDATE accounts
+                            SET balance=%s
+                            WHERE account_no=%s
+                        """, (bal + maturity, acc_no))
+
+                        # 🔹 transaction entry
+                        cur.execute("""
+                            INSERT INTO transactions
+                            (member_no, account_no, trans_type, amount, remark, source, created_by)
+                            VALUES (%s,%s,'Credit',%s,%s,'RD','system')
+                        """, (
+                            member_no,
+                            acc_no,
+                            float(maturity),
+                            f"RD Maturity Credit ({rd_no})"
+                        ))
+
+            # ===== LOAN =====
+            elif dtype == "LOAN":
+
+                cur.execute("""
+                    SELECT loan_no, outstanding_principal, total_payable
+                    FROM loans
+                    WHERE member_no=%s AND loan_head=%s AND status='Active'
+                    LIMIT 1 FOR UPDATE
+                """, (member_no, head))
+
+                loan = cur.fetchone()
+                if not loan or len(loan) < 3:
+                    continue
+
+                loan_no = loan[0]
+                outstanding = Decimal(loan[1] or 0)
+                total_payable = Decimal(loan[2] or 0)
+
+                pay = min(sch_amt, outstanding, remaining)
+                if pay <= 0:
+                    continue
+
+                cur.execute("""
+                    INSERT INTO loan_transactions
+                    (loan_no, trans_type, amount, member_no, remark)
+                    VALUES (%s,'Credit',%s,%s,%s)
+                """, (
+                    loan_no,
+                    float(pay),
+                    member_no,
+                    f"{head} EMI Deduction ({month}/{year})"
+                ))
+
+                cur.execute("""
+                    UPDATE loans
+                    SET outstanding_principal=%s,
+                        total_payable=%s,
+                        total_paid=COALESCE(total_paid,0)+%s,
+                        updated_on=NOW()
+                    WHERE loan_no=%s
+                """, (outstanding - pay, total_payable - pay, float(pay), loan_no))
+                
+                
+                # 🔥 AUTO CLOSE LOAN (ADD THIS)
+                if outstanding - pay <= 0:
+
+                    print("🎉 LOAN CLOSED:", loan_no)
+
+                    cur.execute("""
+                        UPDATE loans
+                        SET status='Closed'
+                        WHERE loan_no=%s
+                    """, (loan_no,))
+
+                remaining_map[emp_no] = remaining - pay
+
+            # ===== MARK POSTED (SAFE) =====
             cur.execute("""
-                SELECT account_no, balance
+                UPDATE employee_deduction_schedule
+                SET posted=true, posted_on=NOW()
+                WHERE id=%s
+            """, (sch_id,))
+
+        # ================= EXTRA → SAVING =================
+        for emp_no, remaining in remaining_map.items():
+
+            remaining = Decimal(remaining or 0)
+            if remaining <= 0:
+                continue
+
+            emp_no = str(emp_no).strip()
+
+            # 🔥 यहाँ member_no fetch करना है
+            cur.execute("""
+                SELECT member_no
+                FROM members
+                WHERE employee_no=%s
+            """, (emp_no,))
+
+            res = cur.fetchone()
+            if not res:
+                print("❌ MEMBER NOT FOUND:", emp_no)
+                continue
+
+            member_no = res[0]
+
+            print("💰 EXTRA TO SAVING:", member_no, remaining)
+
+            sql = cur.mogrify("""
+                SELECT account_no, COALESCE(balance,0)
                 FROM accounts
                 WHERE member_no=%s
-                  AND account_type='Anivarya Sanchay'
+                  AND account_type ILIKE '%%Saving%%'
                   AND status='Active'
+                LIMIT 1
             """, (member_no,))
+
+            cur.execute(sql)
+
             acc = cur.fetchone()
+            print("🔍 SAVING FETCH:", acc)
+
             if not acc:
                 continue
 
-            acc_no, bal = acc
-            new_bal = Decimal(bal) + Decimal(total_amount)
+            acc_no = acc[0]
+            bal = Decimal(acc[1] if len(acc) > 1 else 0)
 
             cur.execute("""
                 UPDATE accounts
                 SET balance=%s
                 WHERE account_no=%s
-            """, (new_bal, acc_no))
+            """, (bal + remaining, acc_no))
 
-            cur.execute("""
-                INSERT INTO transactions
-                (member_no, account_no, trans_type, amount, remark, created_by)
-                VALUES (%s,%s,'Credit',%s,%s,'system')
-            """, (
-                member_no,
-                acc_no,
-                total_amount,
-                f"MPPKVVCL Deduction ({month}/{year})"
-            ))
-
-            cur.execute("""
-                UPDATE employee_deduction_schedule
-                SET posted=true, posted_on=NOW()
-                WHERE employee_no=%s
-                  AND month=%s AND year=%s
-                  AND deduction_head='अनिवार्य संचय'
-            """, (emp_no, month, year))
-
-            anivarya_count += 1
-
-                    # =========================================================
-            # 🔹 PART 2: RD POSTING (MULTI-RD SAFE)
-            # =========================================================
-            cur.execute("""
-                SELECT employee_no, month, year
-                FROM employee_deduction_schedule
-                WHERE deduction_head='आवर्ती जमा'
-                  AND COALESCE(posted,false)=false
-                GROUP BY employee_no, month, year
-            """)
-            rows = cur.fetchall()
-
-            for emp_no, month, year in rows:
-
-                # member
-                cur.execute("SELECT member_no FROM members WHERE employee_no=%s", (emp_no,))
-                r = cur.fetchone()
-                if not r:
-                    continue
-                member_no = r[0]
-
-                # 🔹 ALL ACTIVE RD ACCOUNTS (IMPORTANT FIX)
+            try:
                 cur.execute("""
-                    SELECT rd_account_no, monthly_deposit, interest_rate, member_name
-                    FROM rd_accounts
-                    WHERE member_no=%s AND status='Active'
-                    ORDER BY rd_account_no
-                """, (member_no,))
-                rd_accounts = cur.fetchall()
-
-                if not rd_accounts:
-                    continue
-
-                for rd_no, monthly_dep, ir, member_name in rd_accounts:
-
-                    monthly_dep = Decimal(monthly_dep or 0)
-                    ir = Decimal(ir or 0)
-
-                    if monthly_dep <= 0:
-                        continue
-
-                    # ✅ increment installment for THIS RD
-                    cur.execute("""
-                        UPDATE rd_accounts
-                        SET installments_paid = COALESCE(installments_paid,0) + 1
-                        WHERE rd_account_no=%s
-                    """, (rd_no,))
-
-                    # ✅ credit ONLY this RD's amount
-                    cur.execute("""
-                        INSERT INTO transactions
-                        (member_no, rd_account_no, trans_type, amount, remark, source, created_by)
-                        VALUES (%s,%s,'Credit',%s,%s,'DeductionUpload','system')
-                    """, (
-                        member_no,
-                        rd_no,
-                        monthly_dep,
-                        f"RD Installment Received ({rd_no}) - MPPKVVCL Deduction"
-                    ))
-
-                    # 🔹 interest_history (same logic as credit_debit)
-                    cur.execute("""
-                        SELECT COUNT(*)
-                        FROM interest_history
-                        WHERE account_type='RD' AND account_no=%s
-                    """, (rd_no,))
-                    count = cur.fetchone()[0]
-
-                    principal = (count + 1) * monthly_dep
-                    month_year = datetime.now().strftime("%Y-%m-01")
-                    monthly_interest = (principal * ir / 100 / 12).quantize(Decimal("0.01"))
-
-                    cur.execute("""
-                        INSERT INTO interest_history
-                        (account_type, account_no, member_no, member_name,
-                         month_year, principal, interest_rate, monthly_interest)
-                        VALUES ('RD',%s,%s,%s,%s,%s,%s,%s)
-                    """, (
-                        rd_no,
-                        member_no,
-                        member_name,
-                        month_year,
-                        principal,
-                        ir,
-                        monthly_interest
-                    ))
-
-                # 🔹 mark deduction rows posted ONCE per employee/month/year
-                cur.execute("""
-                    UPDATE employee_deduction_schedule
-                    SET posted=true, posted_on=NOW()
-                    WHERE employee_no=%s
-                      AND month=%s AND year=%s
-                      AND deduction_head='आवर्ती जमा'
-                """, (emp_no, month, year))
-
-                rd_count += 1
-
+                    INSERT INTO transactions
+                    (member_no, account_no, trans_type, amount, remark, source, created_by)
+                    VALUES (%s,%s,'Credit',%s,%s,'Payroll','system')
+                """, (
+                    member_no,
+                    acc_no,
+                    float(remaining),
+                    f"Extra Deduction Credit ({month}/{year})"
+                ))
+            except Exception as e:
+                print("❌ TRANSACTION ERROR:", e)
 
         conn.commit()
-        cur.close()
-        conn.close()
+        print("✅ DONE")
 
-        return {
-            "status": "success",
-            "message": (
-                f"✅ Posting Completed\n"
-                f"Anivarya: {anivarya_count}\n"
-                f"RD: {rd_count}"
-            )
-        }
+        return {"status": "success"}
 
     except Exception as e:
-        print("POSTING ERROR:", e)
-        return {"status": "error", "message": str(e)}, 500
+        conn.rollback()
+        print("❌ ERROR:", e)
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        cur.close()
+        conn.close()
+from flask import render_template,request
+from datetime import datetime
+
+from flask import render_template,request
+from datetime import datetime
 
 @app.route("/print_passbook_page")
 def print_passbook_page():
+
     member_no = request.args.get("member")
     account_no = request.args.get("acc")
-    start_date = request.args.get("start")
-    end_date = request.args.get("end")
 
     conn = get_db()
     cur = conn.cursor()
 
-    # 🔹 NORMAL ACCOUNTS
+    # MEMBER DETAILS
     cur.execute("""
-        SELECT trans_date, trans_type, amount, remark
-        FROM transactions
+        SELECT member_name_hin,permanent_address,member_mobile_no,member_no,employee_no
+        FROM members
         WHERE member_no=%s
-          AND account_no=%s
+    """,(member_no,))
+    
+    member = cur.fetchone()
+
+    # TRANSACTIONS
+    cur.execute("""
+        SELECT trans_date, remark, id, trans_type, amount
+        FROM transactions
+        WHERE member_no=%s AND account_no=%s
         ORDER BY trans_date ASC
-    """, (member_no, account_no))
+    """,(member_no,account_no))
 
     rows = cur.fetchall()
 
     cur.close()
     conn.close()
 
-    # Date filter Python side
-    if start_date:
-        rows = [r for r in rows if str(r[0]) >= start_date]
-    if end_date:
-        rows = [r for r in rows if str(r[0]) <= end_date]
+    balance = 0
+    data = []
+
+    for r in rows:
+
+        date = r[0].strftime("%d-%m-%Y")
+        remark = r[1]
+        trans_type = r[3].lower()
+        amount = float(r[4])
+
+        credit=""
+        debit=""
+
+        if trans_type=="credit":
+            credit=amount
+            balance+=amount
+        else:
+            debit=amount
+            balance-=amount
+
+        data.append({
+            "date":date,
+            "remark":remark,
+            "credit":credit,
+            "debit":debit,
+            "balance":balance
+        })
 
     return render_template(
         "passbook_print.html",
-        rows=rows,
-        member_no=member_no,
-        account_no=account_no,
-        start_date=start_date,
-        end_date=end_date
+        data=data,
+        member=member,
+        account_no=account_no
     )
 
-@app.route("/ping")
-def ping():
-    return "OK"
 
-import requests
-from apscheduler.schedulers.background import BackgroundScheduler
 
-def self_ping():
-    try:
-        requests.get("https://tksssm-portal.onrender.com/ping")
-    except:
-        pass
+from flask import render_template, send_file, request
+from weasyprint import HTML
+import io
 
-scheduler = BackgroundScheduler()
-scheduler.add_job(self_ping, "interval", minutes=10)
-scheduler.start()
+@app.route("/export_passbook_pdf/<member_no>/<account_no>")
+def export_passbook_pdf(member_no, account_no):
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
+
+    # Member name
+    cur.execute("SELECT member_name_hin FROM members WHERE member_no=%s",(member_no,))
+    m = cur.fetchone()
+    member_name = m[0] if m else ""
+
+    # Account type
+    cur.execute("SELECT account_type FROM accounts WHERE account_no=%s",(account_no,))
+    a = cur.fetchone()
+    account_type = a[0] if a else ""
+
+    account_map = {
+        "saving account": "बचत खाता",
+        "share account": "अंश पुंजी",
+        "anivarya sanchay": "अनिवार्य संचय",
+        "home loan account": "गृह ऋण खाता",
+        "fd": "स्थायी जमा",
+        "rd": "आवर्ती जमा"
+    }
+
+    account_type_hindi = account_map.get(account_type.strip().lower(), account_type)
+
+    query = """
+        SELECT trans_date, remark, id, trans_type, amount
+        FROM transactions
+        WHERE member_no=%s AND account_no=%s
+    """
+
+    params = [member_no, account_no]
+
+    if from_date and to_date:
+        query += " AND trans_date BETWEEN %s AND %s"
+        params.append(from_date)
+        params.append(to_date)
+
+    query += " ORDER BY trans_date ASC"
+
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+
+    balance = 0
+    data = []
+
+    for r in rows:
+
+        date = r[0].strftime("%d/%m/%Y")
+        remark = r[1]
+        trans_no = r[2]
+        trans_type = r[3].lower()
+        amount = float(r[4])
+
+        credit = ""
+        debit = ""
+
+        if trans_type == "credit":
+            credit = amount
+            balance += amount
+        else:
+            debit = amount
+            balance -= amount
+
+        data.append({
+            "date": date,
+            "remark": remark,
+            "trans_no": trans_no,
+            "credit": credit,
+            "debit": debit,
+            "balance": balance
+        })
+
+    html = render_template(
+        "passbook_pdf.html",
+        member_no=member_no,
+        member_name=member_name,
+        account_no=account_no,
+        account_type=account_type_hindi,
+        data=data
+    )
+
+    pdf = HTML(string=html).write_pdf()
+
+    return send_file(
+        io.BytesIO(pdf),
+        download_name=f"passbook_{member_name}_{account_type_hindi}.pdf",
+        as_attachment=True
+    )
+
+
+
+
+
+
+
+from flask import render_template, send_file, request
+from weasyprint import HTML
+import io
+
+@app.route("/export_loan_passbook_pdf/<member_no>/<loan_no>")
+def export_loan_passbook_pdf(member_no, loan_no):
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
+
+    # Member Name
+    cur.execute(
+        "SELECT member_name_hin FROM members WHERE member_no=%s",
+        (member_no,)
+    )
+    m = cur.fetchone()
+    member_name = m[0] if m else ""
+
+    # Loan Head
+    cur.execute(
+        "SELECT loan_head FROM loans WHERE loan_no=%s",
+        (loan_no,)
+    )
+    l = cur.fetchone()
+    loan_head = l[0] if l else ""
+
+    # Transactions Query
+    query = """
+        SELECT trans_date, remark, id, trans_type, amount
+        FROM loan_transactions
+        WHERE loan_no=%s
+    """
+
+    params = [loan_no]
+
+    if from_date and to_date:
+        query += " AND trans_date BETWEEN %s AND %s"
+        params.append(from_date)
+        params.append(to_date)
+
+    query += " ORDER BY trans_date ASC"
+
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+
+    balance = 0
+    data = []
+
+    for r in rows:
+
+        date = r[0].strftime("%d/%m/%Y")
+        remark = r[1]
+        trans_no = r[2]
+        trans_type = r[3].lower()
+        amount = float(r[4])
+
+        credit = ""
+        debit = ""
+
+        if trans_type == "credit":
+            credit = amount
+            balance += amount
+        else:
+            debit = amount
+            balance -= amount
+
+        data.append({
+            "date": date,
+            "remark": remark,
+            "trans_no": trans_no,
+            "credit": credit,
+            "debit": debit,
+            "balance": balance
+        })
+
+    html = render_template(
+        "loan_passbook_pdf.html",
+        member_no=member_no,
+        member_name=member_name,
+        loan_no=loan_no,
+        loan_head=loan_head,
+        data=data
+    )
+
+    pdf = HTML(string=html).write_pdf()
+
+    return send_file(
+        io.BytesIO(pdf),
+        download_name=f"loan_passbook_{member_name}_{loan_head}.pdf",
+        as_attachment=True
+    )
+
+
+
+
+
 
 import json
+import os
 from flask import jsonify
 
 @app.route("/config.json")
 def config_json():
-    with open("config.json") as f:
-        data = json.load(f)
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(base_dir, "config.json")
+
+        with open(config_path, "r") as f:
+            data = json.load(f)
+
+        return jsonify(data)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+    
+    
+@app.route("/api/save_token", methods=["POST"])
+def save_token():
+
+    print("API HIT")  # ← add
+
+    data = request.get_json()
+
+    token = data.get("token")
+
+    print("TOKEN RECEIVED:", token)
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO device_tokens (token)
+        VALUES (%s)
+        ON CONFLICT (token) DO NOTHING
+    """, (token,))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "saved"})
+
+@app.route("/api/latest_news")
+def latest_news():
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT id, title
+        FROM news
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if row:
+
+        return jsonify({
+            "id": row[0],
+            "title": row[1]
+        })
+
+    return jsonify({"id": 0})
+
+@app.route("/api/get_tokens")
+def get_tokens():
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT token FROM device_tokens")
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    tokens = [r[0] for r in rows]
+
+    return jsonify(tokens)
+
+# ================= VERSION API =================
+
+@app.route("/api/version")
+def app_version():
+
+    data = {
+        "version": 11,   # ⚠️ current app से बड़ा होना चाहिए
+        "force": True,
+        "message": "नई version उपलब्ध है, कृपया update करें।",
+        "apk_url": "http://tech.mpwin.co.in/static/app/app-release.apk",
+        "playstore_url": "https://play.google.com/store/apps/details?id=in.pedi.mobileapp"
+    }
+
     return jsonify(data)
+    
+    
+import psycopg2
+
+from datetime import datetime
+
+@app.route('/bank_transfer', methods=['GET','POST'])
+def bank_transfer():
+
+    total = ipc_total = sbi_total = None
+
+    if request.method == 'POST':
+        date = request.form.get('date')
+
+        # ✅ SAFE CHECK
+        if not date:
+            return render_template('bank_transfer.html')
+
+        dt = datetime.strptime(date, "%Y-%m-%d")
+
+        month = dt.month
+        year = dt.year
+
+        conn = psycopg2.connect(
+            host="localhost",
+            database="pedi",
+            user="postgres",
+            password="root"
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT eds.amount, m.circle
+            FROM employee_deduction_schedule eds
+            JOIN members m ON eds.member_no = m.member_no
+            WHERE eds.month=%s AND eds.year=%s
+            AND eds.status='Active' AND eds.posted=TRUE
+        """, (month, year))
+
+        data = cursor.fetchall()
+
+        total = ipc_total = sbi_total = 0
+
+        for amt, circle in data:
+            amt = float(amt)
+            total += amt
+
+            if str(circle) == "342":
+                ipc_total += amt
+            else:
+                sbi_total += amt
+
+        cursor.close()
+        conn.close()
+
+    voucher = session.pop('voucher', None)
+
+    return render_template(
+        'bank_transfer.html',
+        total=total,
+        ipc_total=ipc_total,
+        sbi_total=sbi_total,
+        voucher=voucher
+    )
+    
+import psycopg2
+
+from datetime import datetime
+import psycopg2
+from flask import request, redirect, url_for, session
+
+@app.route('/bank_posting', methods=['POST'])
+def bank_posting():
+
+    date = request.form.get('date')
+    ipc_total = float(request.form.get('ipc_total', 0))
+    sbi_total = float(request.form.get('sbi_total', 0))
+    banks = request.form.getlist('bank')
+
+    # ✅ safe check
+    if not date:
+        return "⚠ Date missing"
+
+    trans_date = datetime.strptime(date, "%Y-%m-%d")
+
+    conn = psycopg2.connect(
+        host="localhost",
+        database="pedi",
+        user="postgres",
+        password="root"
+    )
+    cursor = conn.cursor()
+
+    try:
+        # 🎯 voucher
+        cursor.execute("SELECT COUNT(*) FROM bank_transactions")
+        count = cursor.fetchone()[0] + 1
+        voucher = f"SP/{trans_date.strftime('%m/%Y')}/{str(count).zfill(6)}"
+
+        # ================= IPC =================
+        if "IPC" in banks and ipc_total > 0:
+
+            cursor.execute("""
+                SELECT COUNT(*) FROM bank_transactions
+                WHERE bank_id='510' AND DATE(trans_date)=%s
+            """, (date,))
+
+            if cursor.fetchone()[0] > 0:
+                return f"⚠ IPC already posted on {date}"
+
+            cursor.execute("""
+                INSERT INTO bank_transactions
+                (bank_name, bank_id, trans_type, amount, voucher_no, trans_date, created_on)
+                VALUES (%s,%s,'Debit',%s,%s,%s,NOW())
+            """, (
+                'IPC BANK',
+                '510',
+                ipc_total,
+                voucher,
+                trans_date
+            ))
+
+            cursor.execute("""
+                UPDATE loan_heads
+                SET amount = amount - %s
+                WHERE id = 510
+            """, (ipc_total,))
 
 
+        # ================= SBI =================
+        if "SBI" in banks and sbi_total > 0:
 
+            cursor.execute("""
+                SELECT COUNT(*) FROM bank_transactions
+                WHERE bank_id='618' AND DATE(trans_date)=%s
+            """, (date,))
 
+            if cursor.fetchone()[0] > 0:
+                return f"⚠ SBI already posted on {date}"
 
+            cursor.execute("""
+                INSERT INTO bank_transactions
+                (bank_name, bank_id, trans_type, amount, voucher_no, trans_date, created_on)
+                VALUES (%s,%s,'Debit',%s,%s,%s,NOW())
+            """, (
+                'SBI BANK',
+                '618',
+                sbi_total,
+                voucher,
+                trans_date
+            ))
 
+            cursor.execute("""
+                UPDATE loan_heads
+                SET amount = amount - %s
+                WHERE id = 618
+            """, (sbi_total,))
 
+        conn.commit()
 
+    except Exception as e:
+        conn.rollback()
+        return f"Error: {str(e)}"
 
+    finally:
+        cursor.close()
+        conn.close()
 
+    # ✅ show voucher on UI
+    session['voucher'] = voucher
+    return redirect(url_for('bank_transfer'))
+    
+import psycopg2
 
-
-
-
+def generate_voucher(cursor):
+    cursor.execute("SELECT COUNT(*) FROM bank_transactions")
+    count = cursor.fetchone()[0] + 1
+    return f"SP/{datetime.now().strftime('%m/%Y')}/{str(count).zfill(6)}"
 
 
 
@@ -7005,13 +8546,60 @@ def config_json():
 
 
 
+scheduler = BackgroundScheduler()
+
+# Run every month last day at 23:59
+scheduler.add_job(calculate_monthly_interest, 'cron', day='last', hour=23, minute=52)
+
+# Run yearly: 31 March 23:59
+scheduler.add_job(credit_annual_interest, 'cron',
+                  month='3', day='31', hour=23, minute=51)
+                  
+scheduler.add_job(auto_renew_rd, 'cron', hour=2)
 
 
+scheduler.add_job(
+    generate_all_fd_interest,   # ye function sab FD ke liye call kare
+    'cron',
+    day=1,
+    hour=1
+)
 
 
+scheduler.add_job(
+    auto_generate_monthly_loan_interest,
+    trigger='cron',        # har mahine last tareekh
+    day='last',
+    hour=23,
+    minute=55
+)
 
+scheduler.add_job(
+    run_fd_yearly_interest,
+    trigger='cron',
+    hour=23,
+    minute=50
+)
 
-
+scheduler.add_job(
+    credit_annual_loan_interest,
+    'cron',
+    month=3,
+    day=31,
+    hour=23,
+    minute=59,
+    id="annual_loan_interest_job",
+    replace_existing=True
+)
+'''
+scheduler.add_job(
+    credit_annual_loan_interest,
+    'interval',
+    seconds=10,
+    id="test_annual_loan_interest",
+    replace_existing=True
+)
+'''
 
         
 
@@ -7022,13 +8610,21 @@ def config_json():
 
 
 
+if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    scheduler.start()
+    
 
+    
+    
 
 
     
     
  
     
+
+
+
 
 
 # --- RUN APP ---
