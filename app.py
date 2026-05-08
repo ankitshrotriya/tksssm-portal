@@ -54,18 +54,17 @@ UPLOAD_FOLDER = os.path.join("static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+
 # --- Database Setup ---
-DB_HOST = "localhost"
-DB_NAME = "pedi"
-DB_USER = "postgres"
-DB_PASS = "root"
-
-
 def get_db():
-    return psycopg2.connect(
-        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
+    DATABASE_URL = os.environ.get("DATABASE_URL")
+
+    conn = psycopg2.connect(
+        DATABASE_URL,
+        sslmode="require"
     )
 
+    return conn
 
 # ✅ Function to generate sequential account numbers
 def generate_account_no(cursor):
