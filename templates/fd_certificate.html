@@ -1,0 +1,276 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<style>
+
+.fd-wrapper{
+    width:950px;
+    margin:30px auto;
+    padding:25px;
+    background:#fff;
+    border:1px solid #000;
+    font-family: 'Noto Sans Devanagari', sans-serif;
+}
+
+.fd-header{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.fd-top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.fd-reg{
+    font-size:13px;
+    background:#1e4fbf;
+    color:white;
+    padding:4px 10px;
+    border-radius:4px;
+}
+
+.fd-title{
+    font-size:24px;
+    font-weight:bold;
+    color:#b30000;
+    margin-top:10px;
+}
+
+.fd-subtitle{
+    font-size:14px;
+    margin-top:4px;
+}
+
+.fd-note{
+    margin-top:10px;
+    font-size:14px;
+}
+
+.blue-badge{
+    background:#003399;
+    color:white;
+    padding:5px 15px;
+    border-radius:25px;
+    display:inline-block;
+    margin-top:5px;
+    font-weight:bold;
+}
+
+.fd-body-box{
+    border:3px double #003399;
+    padding:25px;
+    margin-top:20px;
+    min-height:280px;
+    line-height:1.8;
+}
+
+.fd-row{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:10px;
+}
+
+.fd-sign{
+    display:flex;
+    justify-content:space-between;
+    margin-top:60px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.print-btn{
+    text-align:center;
+    margin-top:20px;
+}
+
+@media print {
+    body * { visibility: hidden; }
+    #certificate, #certificate * { visibility: visible; }
+    #certificate {
+        position:absolute;
+        left:0;
+        top:0;
+        width:100%;
+    }
+    .print-btn{ display:none; }
+}
+
+</style>
+
+
+<h2 style="text-align:center;">मियादी अमानत प्रमाण पत्र (FD Certificate)</h2>
+
+<div class="card">
+
+    <!-- Member & FD Selection -->
+    <div style="display:flex; gap:20px; margin-bottom:20px;">
+
+        <div style="flex:1;">
+            <label>सदस्य क्रमांक (Member No.):</label><br>
+
+            <!-- Editable dropdown -->
+            <input list="memberList" id="memberInput" 
+                   placeholder="Type or Select Member No"
+                   style="width:100%; padding:8px;">
+
+            <datalist id="memberList"></datalist>
+        </div>
+
+        <div style="flex:1;">
+            <label>एफडी क्रमांक (FD Account No.):</label><br>
+            <select id="fdSelect" style="width:100%; padding:8px;">
+                <option value="">-- Select FD --</option>
+            </select>
+        </div>
+
+    </div>
+
+
+    <!-- Certificate -->
+    <div id="certificate" style="display:none;">
+
+        <div class="fd-wrapper">
+
+            <div class="fd-header">
+
+                <div class="fd-top-row">
+                    <div></div>
+                    <div class="fd-reg">
+                        पंजीयन क्रमांक AR/IDR/860 दिनांक 11/09/87
+                    </div>
+                </div>
+
+                <div class="fd-title">
+                    तकनीकी कर्मचारी सहकारी साख संस्था मर्या., इंदौर
+                </div>
+
+                <div class="fd-subtitle">
+                    तकनीकी सहकार भवन, 38, वेस्ट हॉस्टल रोड, ओ.पी.एच. कैम्पस, इंदौर
+                </div>
+
+                <div class="fd-note">
+                    हस्तांतरण नहीं की जा सकती
+                    <br>
+                    <span class="blue-badge">मियादी अमानत की पावती</span>
+                </div>
+
+            </div>
+
+
+            <div class="fd-body-box">
+
+                <div class="fd-row">
+                    <span>रसीद नं.: __________</span>
+                    <span>ले. फो.: __________</span>
+                </div>
+
+                <div class="fd-row">
+                    <span>कंप्यूटर नं.: __________</span>
+                    <span>दिनांक: __________</span>
+                </div>
+
+                <br>
+
+                <p>
+                    यह प्रमाणित किया जाता है कि 
+                    <b><span id="memberName"></span></b>
+                    (सदस्य क्रमांक : <b><span id="memberNo"></span></b>)
+                    की मियादी अमानत राशि ₹ 
+                    <b><span id="fdAmount"></span></b>
+                    ब्याज दर <b><span id="fdRate"></span>%</b>
+                    दिनांक <b><span id="startDate"></span></b> से
+                    <b><span id="endDate"></span></b> तक की अवधि के लिए
+                    संस्था के नियमों एवं शर्तों के अधीन स्वीकार की जाती है।
+                </p>
+
+                <p>
+                    <b>नोट:</b> संस्था के नियमों का पालन न करने अथवा दस्तावेज़ों में परिवर्तन की स्थिति में
+                    मियादी अमानत निरस्त की जा सकेगी।
+                    मियादी अमानत हस्तांतरित नहीं की जा सकती।
+                </p>
+
+            </div>
+
+            <div class="fd-sign">
+                <div>प्रबंधक<br>मुहर एवं हस्ताक्षर</div>
+                <div>उपाध्यक्ष<br>मुहर एवं हस्ताक्षर</div>
+                <div>संचालक<br>मुहर एवं हस्ताक्षर</div>
+            </div>
+
+        </div>
+
+        <div class="print-btn">
+            <button onclick="window.print()">🖨 Print Certificate</button>
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+// Load members into datalist
+window.onload = function() {
+    fetch('/get_active_members')
+    .then(res => res.json())
+    .then(data => {
+        let list = document.getElementById('memberList');
+        data.forEach(m => {
+            let option = document.createElement('option');
+            option.value = m.member_no;
+            option.label = m.member_no + " - " + m.member_name_eng;
+            list.appendChild(option);
+        });
+    });
+};
+
+
+// When member typed or selected
+document.getElementById('memberInput').addEventListener('change', function() {
+    let memberNo = this.value;
+    document.getElementById('fdSelect').innerHTML = '<option value="">-- Select FD --</option>';
+
+    if(memberNo){
+        fetch('/get_fd_by_member/' + memberNo)
+        .then(res => res.json())
+        .then(data => {
+            let fdSelect = document.getElementById('fdSelect');
+            data.forEach(fd => {
+                let opt = document.createElement('option');
+                opt.value = fd.fd_account_no;
+                opt.text = fd.fd_account_no;
+                fdSelect.add(opt);
+            });
+        });
+    }
+});
+
+
+// Load FD details
+document.getElementById('fdSelect').addEventListener('change', function() {
+    let fdNo = this.value;
+
+    if(fdNo){
+        fetch('/get_fd_details/' + fdNo)
+        .then(res => res.json())
+        .then(data => {
+
+            document.getElementById('certificate').style.display = 'block';
+
+            document.getElementById('memberName').innerText = data.member_name_eng;
+            document.getElementById('memberNo').innerText = data.member_no;
+            document.getElementById('fdAmount').innerText = data.amount;
+            document.getElementById('fdRate').innerText = data.interest_rate;
+            document.getElementById('startDate').innerText = data.start_date;
+            document.getElementById('endDate').innerText = data.end_date;
+
+        });
+    }
+});
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card shadow-lg" style="max-width:700px; margin:auto; padding:25px; border-radius:15px; background:#fdfdfd;">
+
+  <h2 style="text-align:center; margin-bottom:25px; color:#dc3545;">💰 FD Pre-Closure</h2>
+
+  <form method="post" id="fdForm" style="display:grid; gap:20px;" action="/fd/premature_close">
+    
+    <!-- Member Search -->
+    <div style="position:relative;">
+      <label style="font-weight:600;">👤 Member:</label>
+      <input type="text" id="member_search" class="form-control" placeholder="Search Member..." autocomplete="off" onkeyup="searchMember()" style="border-radius:8px; padding:10px;">
+      <div id="member_results" 
+           style="border:1px solid #ccc; border-radius:4px; display:none; position:absolute; background:white; width:100%; max-height:200px; overflow-y:auto; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:1000;">
+      </div>
+      <input type="hidden" name="member_no" id="member_no">
+    </div>
+
+    <!-- FD Account -->
+    <div>
+      <label style="font-weight:600;">🏦 FD Account:</label>
+      <input list="fdList" id="fd_account_no" name="fd_account_no" class="form-control" placeholder="Select FD Account..." required style="border-radius:8px; padding:10px;">
+      <datalist id="fdList">
+        <option value="">--Select FD--</option>
+      </datalist>
+    </div>
+
+    <button type="submit" class="btn btn-danger" style="border-radius:8px; padding:10px; font-size:16px;">💳 Premature Close FD</button>
+  </form>
+</section>
+
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+const members = [
+    {% for m in members %}
+      {no: "{{ m[0] }}", name: "{{ m[1] }}"},
+    {% endfor %}
+];
+
+// ---- Member Search ----
+function searchMember() {
+    let q = document.getElementById("member_search").value.toLowerCase();
+    let box = document.getElementById("member_results");
+
+    if (q.length < 1) {
+        box.style.display = "none";
+        return;
+    }
+
+    let filtered = members.filter(m =>
+        m.name.toLowerCase().includes(q) || m.no.includes(q)
+    );
+
+    box.innerHTML = "";
+    filtered.forEach(m => {
+        box.innerHTML += `
+            <div style="padding:8px; cursor:pointer;" onclick="selectMember('${m.no}', '${m.name}')">
+                ${m.name} (${m.no})
+            </div>`;
+    });
+
+    box.style.display = filtered.length ? "block" : "none";
+}
+
+// ---- Select Member ----
+function selectMember(no, name) {
+    document.getElementById("member_search").value = name + " (" + no + ")";
+    document.getElementById("member_no").value = no;
+    document.getElementById("member_results").style.display = "none";
+
+    loadFDs(); // Load FD accounts
+}
+
+// ---- Load FD Accounts ----
+function loadFDs() {
+    const member_no = document.getElementById("member_no").value;
+    const fdList = document.getElementById("fdList");
+    fdList.innerHTML = "<option value=''>Loading...</option>";
+
+    if (!member_no) return;
+
+    fetch(`/get_fd_by_member/${member_no}`)
+      .then(res => res.json())
+      .then(data => {
+        fdList.innerHTML = "<option value=''>--Select FD--</option>";
+        data.forEach(fd => {
+            let opt = document.createElement("option");
+            opt.value = fd.fd_account_no;
+            opt.text = `${fd.fd_account_no} - ₹${fd.deposit_amount} - Matures on ${fd.maturity_date}`;
+            fdList.appendChild(opt);
+        });
+      })
+      .catch(err => {
+        fdList.innerHTML = "<option value=''>--Select FD--</option>";
+        console.error(err);
+      });
+}
+
+// ---- Handle Form Submission with SweetAlert ----
+const fdForm = document.getElementById("fdForm");
+fdForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    const formData = new FormData(fdForm);
+
+    fetch(fdForm.action || window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => {
+        // Fixed success popup, ignore server message
+        Swal.fire({
+            icon: 'success',
+            title: '✅ FD Pre-Closed!',
+            text: 'FD has been successfully pre-closed.',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+        fdForm.reset();
+        document.getElementById("fdList").innerHTML = "<option value=''>--Select FD--</option>";
+    })
+    .catch(err => {
+        Swal.fire({
+            icon: 'error',
+            title: '❌ Error',
+            text: 'Network or server error!'
+        });
+        console.error(err);
+    });
+});
+</script>
+
+{% endblock %}

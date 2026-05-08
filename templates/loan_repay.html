@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* Your existing styles */
+body {
+    background: #f0f4f8;
+    font-family: 'Poppins', sans-serif;
+}
+.form-card {
+    background: #fff;
+    padding: 30px 25px;
+    border-radius: 12px;
+    max-width: 700px;
+    margin: 50px auto;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+}
+.form-title {
+    text-align: center;
+    font-weight: 600;
+    font-size: 1.6rem;
+    margin-bottom: 25px;
+    color: #00368e;
+}
+.input-group { margin-bottom: 18px; }
+label { font-weight: 600; color: #333; margin-bottom: 6px; display: block; }
+input, select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+}
+input:focus, select:focus { border-color: #3E8EDE; outline: none; }
+.btn-submit {
+    width: 100%;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: bold;
+    border: none;
+    background: #3E8EDE;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+.btn-submit:hover { background: #2A6FBE; }
+
+/* PRE-CLOSE BUTTON */
+.btn-preclose {
+    width: 100%;
+    padding: 14px;
+    margin-top: 10px;
+    font-size: 17px;
+    font-weight: bold;
+    border: none;
+    background: #c62828;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.btn-preclose:hover { background: #9e1f1f; }
+
+/* POPUPS */
+.popup-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+.popup-box {
+    background: #ffffff;
+    padding: 25px 30px;
+    border-radius: 12px;
+    text-align: center;
+    width: 360px;
+    animation: fadeIn 0.3s ease-out;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+}
+.check-icon { font-size: 50px; color: #1D7430; margin-bottom: 10px; }
+.popup-btn {
+    margin-top: 18px;
+    background: #1D7430;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.popup-btn:hover { background: #155a27; }
+
+@keyframes fadeIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+</style>
+
+<div class="form-card">
+    <h3 class="form-title">💳 EMI Repayment</h3>
+
+    <form id="repayForm">
+        <div class="input-group">
+            <label>Select Loan *</label>
+            <select name="loan_no" id="loan_select" required>
+                <option value=""></option>
+                {% for l in loans %}
+                <option value="{{ l[0] }}" 
+                        data-member="{{ l[1] }}" 
+                        data-name="{{ l[2] }}" 
+                        data-out="{{ "%.2f"|format(l[3] or 0) }}" 
+                        data-emi="{{ "%.2f"|format(l[4] or 0) }}">
+                    {{ l[0] }} ({{ l[5] }}) — {{ l[2] }} — Outstanding: ₹{{ "%.2f"|format(l[3] or 0) }} — EMI: ₹{{ "%.2f"|format(l[4] or 0) }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Member No</label>
+            <input type="text" id="member_no" readonly>
+        </div>
+        <div class="input-group">
+            <label>Member Name</label>
+            <input type="text" id="member_name" readonly>
+        </div>
+
+        <div class="double-columns" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+            <div class="input-group">
+                <label>Outstanding Principal</label>
+                <input type="text" id="outstanding" readonly>
+            </div>
+            <div class="input-group">
+                <label>EMI Amount</label>
+                <input type="text" id="emi_amount" readonly>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Amount to be debited now</label>
+            <input type="text" id="to_be_debited" readonly>
+            <small id="note" class="form-text text-muted"></small>
+        </div>
+
+        <div class="double-columns" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+            <div class="input-group">
+                <label>Payment Mode *</label>
+                <select name="pay_mode" id="pay_mode" required>
+                    <option value="Saving">Saving Account</option>
+                    <option value="Cash">Cash</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Payment Date *</label>
+                <input type="date" name="pay_date" id="pay_date" required>
+            </div>
+        </div>
+
+        <button type="button" id="repayBtn" class="btn-submit mt-3">💾 Pay EMI</button>
+        <button type="button" id="preCloseBtn" class="btn-preclose mt-2">🚨 Pre-Close Loan</button>
+    </form>
+</div>
+
+<!-- EMI POPUP -->
+<div class="popup-overlay" id="popupModal">
+    <div class="popup-box">
+        <div class="check-icon">✔</div>
+        <h3>EMI Paid ✅</h3>
+        <p id="popupMsg">Transaction successful!</p>
+        <button class="popup-btn" onclick="closePopup()">OK</button>
+    </div>
+</div>
+
+<!-- ❌ ERROR POPUP -->
+<div class="popup-overlay" id="errorPopup">
+    <div class="popup-box" style="border:3px solid #b10000;">
+        <div style="font-size:45px; color:#b10000;">⚠</div>
+        <h3 style="color:#b10000;">Payment Failed</h3>
+        <p id="errorMsg">Insufficient Balance!</p>
+        <button class="popup-btn" style="background:#b10000;" onclick="closeErrorPopup()">OK</button>
+    </div>
+</div>
+
+<!-- PRE-CLOSE POPUP -->
+<div class="popup-overlay" id="precloseModal">
+    <div class="popup-box" style="border:3px solid #c62828;">
+        <div style="font-size:45px; color:#c62828;">⚠</div>
+        <h3 style="color:#c62828;">Confirm Pre-Closure?</h3>
+        <p id="preCloseText">Calculating...</p>
+        <button id="confirmPreClose" class="popup-btn" style="background:#c62828;">Yes, Close Loan</button>
+        <button onclick="$('#precloseModal').fadeOut();" 
+                style="margin-left:10px; background:gray;" 
+                class="popup-btn">Cancel</button>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#loan_select').select2({
+        placeholder: "-- choose loan --",
+        allowClear: true,
+        width: '100%'
+    });
+});
+
+// AUTO FILL
+function refreshPayAmount(){
+    const opt = $('#loan_select option:selected');
+    if(!opt.val()){
+        $('#member_no,#member_name,#outstanding,#emi_amount,#to_be_debited').val("");
+        $('#note').text("");
+        return;
+    }
+    const out = parseFloat(opt.data('out'));
+    const emi = parseFloat(opt.data('emi'));
+
+    $('#member_no').val(opt.data('member'));
+    $('#member_name').val(opt.data('name'));
+    $('#outstanding').val(out.toFixed(2));
+    $('#emi_amount').val(emi.toFixed(2));
+
+    const payPrincipal = (out <= emi) ? out : emi;
+    $('#to_be_debited').val(payPrincipal.toFixed(2));
+    $('#note').text(out <= emi ? "Last EMI. Loan auto-closes." : "");
+}
+$('#loan_select').change(refreshPayAmount);
+$(window).on('load', refreshPayAmount);
+
+
+// ⭐⭐⭐ DOUBLE SUBMISSION PROTECTION ⭐⭐⭐
+let isProcessing = false;
+
+// 🌟 UPDATED EMI Pay with Saving Balance Popup Check
+$('#repayBtn').click(function(){
+    if(isProcessing) return;
+    isProcessing = true;
+    $('#repayBtn').prop('disabled', true).text("Processing...");
+
+    const loanNo = $('#loan_select').val();
+    const payDate = $('#pay_date').val();
+    const payMode = $('#pay_mode').val();
+    const amount = parseFloat($('#to_be_debited').val());
+    const memberNo = $('#member_no').val();
+
+    if(!loanNo){ openErrorPopup("Please select a loan!"); resetBtn(); return; }
+    if(!payDate){ openErrorPopup("Please select payment date!"); resetBtn(); return; }
+
+    if(payMode === "Saving"){
+        $.get(`/check_balance_amount/${memberNo}/${amount}`, function(r){
+            if(!r.ok){
+                openErrorPopup("❌ Saving Account Balance Insufficient!");
+                resetBtn();
+                return;
+            }
+            processEMI(loanNo, payDate, payMode);
+        });
+    }
+    else{
+        processEMI(loanNo, payDate, payMode);
+    }
+});
+
+
+function resetBtn(){
+    isProcessing = false;
+    $('#repayBtn').prop('disabled', false).text("💾 Pay EMI");
+}
+
+
+// EMI Processing Function
+function processEMI(loanNo, payDate, payMode){
+    $.post('/loan/repay',{
+        loan_no:loanNo,
+        pay_date:payDate,
+        pay_mode:payMode
+    }).done(()=>{
+        $('#popupMsg').text("EMI paid successfully!");
+        $('#popupModal').css('display','flex');
+        setTimeout(closePopup, 2000);
+    }).fail(()=>{
+        openErrorPopup("Server Error: Unable to process EMI");
+        resetBtn();
+    });
+}
+
+function closePopup(){ $('#popupModal').fadeOut(); location.reload(); }
+function closeErrorPopup(){ $('#errorPopup').fadeOut(); resetBtn(); }
+function openErrorPopup(msg){ $('#errorMsg').text(msg); $('#errorPopup').css('display','flex'); }
+
+// PRE-CLOSE
+$('#preCloseBtn').click(function(){
+    const loanNo = $('#loan_select').val();
+    if(!loanNo){ openErrorPopup("Select a loan first!"); return; }
+
+    $.post('/loan/preclose/calc',{loan_no:loanNo})
+    .done(function(r){
+        if(r.error){ openErrorPopup(r.error); return; }
+        $('#preCloseText').html(`
+            Principal: <b>₹${r.outstanding.toFixed(2)}</b><br>
+            Interest Till Date: <b>₹${r.interest.toFixed(2)}</b><br>
+            <b>Total Payable: ₹${r.total.toFixed(2)}</b>
+        `);
+        $('#precloseModal').css('display','flex');
+    })
+    .fail(function(xhr){
+        openErrorPopup("Server Error!");
+    });
+});
+
+$('#confirmPreClose').click(function(){
+    const loanNo = $('#loan_select').val();
+    $.post('/loan/preclose/confirm',{loan_no:loanNo})
+    .done(function(r){
+        if(r.success){
+            $('#preCloseText').html("<b>Loan Closed Successfully ✔</b>");
+            setTimeout(()=>location.reload(), 2000);
+        }
+        else if(r.error){ openErrorPopup(r.error); }
+    });
+});
+</script>
+
+{% endblock %}
