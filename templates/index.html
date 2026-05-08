@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f3f6fa;
+            font-family: 'Poppins', sans-serif;
+        }
+        .dashboard-container {
+            margin-top: 40px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-icon {
+            font-size: 2.5rem;
+            color: #00368e;
+        }
+        .card-title {
+            font-weight: 600;
+            color: #00368e;
+        }
+        .count {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #111;
+        }
+    </style>
+</head>
+<body>
+<div class="container dashboard-container">
+
+    <!-- First Row: 3 boxes -->
+    <div class="row text-center justify-content-center">
+
+        <!-- Active Accounts 
+        <div class="col-md-4 mb-4">
+            <div class="card p-4 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <h5 class="text-primary mb-2">💼 Active Accounts</h5>
+                    <h2 class="fw-bold fs-4 text-dark">{{ active_accounts }}</h2>
+                </div>
+            </div>
+        </div>-->
+
+        <!-- Active FDs -->
+        <div class="col-md-4 mb-4">
+            <div class="card p-4 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <h5 class="text-success mb-2">🏦 Active Fixed Deposits</h5>
+                    <h2 class="fw-bold fs-4 text-dark">{{ active_fds }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Loans -->
+        <div class="col-md-4 mb-4">
+            <div class="card p-4 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <h5 class="text-warning mb-2">💰 Active Loans</h5>
+                    <h2 class="fw-bold fs-4 text-dark">{{ active_loans }}</h2>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Second Row: Active Members -->
+    <div class="row text-center justify-content-center">
+
+        <!-- Active Members -->
+        <div class="col-md-4 mb-4">
+            <div class="card p-4 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <h5 class="text-info mb-2">🧑‍🤝‍🧑 Active Members</h5>
+                    <h2 class="fw-bold fs-4 text-dark">{{ active_members }}</h2>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</body>
+</html>
+{% endblock %}

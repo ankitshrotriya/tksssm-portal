@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block content %}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>💰 Credit / Debit Transaction</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+ body{background:#f0f4f8;font-family:'Poppins',sans-serif}
+ .form-card{background:#fff;padding:30px;border-radius:12px;margin-top:30px;box-shadow:0 6px 15px rgba(0,0,0,0.1)}
+ .form-title{text-align:center;font-weight:600;font-size:1.6rem;margin-bottom:25px;color:#00368e}
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="form-card">
+<h3 class="form-title">💰 Credit / Debit Transaction</h3>
+
+<!-- 🚀 FLASH MESSAGES BOX ADDED HERE -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+<!-- 🚀 END FLASH MSG UI -->
+
+<form id="creditForm" method="POST" action="/credit_debit">
+
+<!-- Hidden fields for backend -->
+<input type="hidden" name="voucher_no" id="voucher_no">
+<input type="hidden" name="voucher_type_hidden" id="voucher_type_hidden">
+<input type="hidden" name="voucher_number_hidden" id="voucher_number_hidden">
+
+<div class="row g-3">
+
+<!-- PURPOSE -->
+<div class="col-md-6">
+<label>Transaction For *</label>
+<select name="purpose" id="purpose" class="form-select" required>
+<option value="Normal" selected>Normal Transaction</option>
+<option value="RD">Recurring Deposit (RD) Installment</option>
+</select>
+</div>
+
+<!-- MEMBER -->
+<div class="col-md-6">
+<label>Member No *</label>
+<input list="memberList" name="member_no" id="member_no" class="form-control" placeholder="Type or select member" required>
+<datalist id="memberList"></datalist>
+</div>
+
+<!-- RD ACCOUNT -->
+<div class="col-md-6" id="rd_field" style="display:none">
+<label>RD Account No *</label>
+<select name="rd_account_no" id="rd_account_no" class="form-select">
+<option value="">Select RD Account</option>
+</select>
+</div>
+
+<!-- NORMAL ACCOUNT -->
+<div class="col-md-6" id="account_field">
+<label>Account No *</label>
+<select name="account_no" id="account_no" class="form-select">
+<option value="">Select Account</option>
+</select>
+</div>
+
+<!-- TRANS TYPE -->
+<div class="col-md-6" id="trans_type_field">
+<label>Transaction Type *</label>
+<select name="trans_type" id="trans_type" class="form-select" required>
+<option value="Credit">Credit</option>
+<option value="Debit" selected>Debit</option>
+</select>
+</div>
+
+<!-- AMOUNT -->
+<div class="col-md-6">
+<label>Amount *</label>
+<input type="number" name="amount" id="amount" class="form-control" min="1" step="0.01" required>
+</div>
+
+<!-- SOURCE -->
+<div class="col-md-6">
+<label>Source *</label>
+<select name="source" id="source" class="form-select" required>
+<option value="">Select Source</option>
+<option value="Cash">Cash</option>
+<option value="Cheque">Cheque</option>
+<option value="DD">DD</option>
+<option value="Other">Other</option>
+</select>
+</div>
+
+<!-- CHEQUE/DD FIELDS -->
+<div class="col-md-6"><label>Cheque No.</label><input type="text" name="cheque_no" id="cheque_no" class="form-control" readonly></div>
+<div class="col-md-6"><label>DD No.</label><input type="text" name="dd_no" id="dd_no" class="form-control" readonly></div>
+<div class="col-md-6"><label>Issued Bank</label><input type="text" name="issued_bank" id="issued_bank" class="form-control" readonly></div>
+<div class="col-md-6"><label>Issue Date</label><input type="date" name="issue_date" id="issue_date" class="form-control" readonly></div>
+
+<!-- BANK NAME ONLY FOR NORMAL -->
+<div class="col-md-6" id="pedi_bank_field">
+<label>Bank Name</label>
+<select name="pedi_bank" id="pedi_bank" class="form-select" >
+
+<option value="">Select Bank</option>
+</select>
+</div>
+
+<!-- VOUCHER NO -->
+<div class="col-md-6" id="voucher_field">
+<label>Voucher No *</label>
+<div style="display:flex;gap:5px;">
+<select id="voucher_type" class="form-select" style="width: 40%;">
+<option value="">Type</option>
+<option value="MR/">MR/</option>
+<option value="TR/">TR/</option>
+<option value="NV/">NV/</option>
+</select>
+<input type="text" id="voucher_number" class="form-control" placeholder="Enter No." style="width:60%;">
+</div>
+</div>
+
+<!-- REMARK -->
+<div class="col-md-12">
+<label>Remark</label>
+<textarea name="remark" class="form-control" rows="2" placeholder="Optional"></textarea>
+</div>
+
+</div>
+
+<div class="text-center mt-4">
+<button type="submit" id="creditForm" class="btn btn-primary">💾 Submit Transaction</button>
+</div>
+
+</form>
+</div>
+</div>
+
+<script>
+const purposeSelect=document.getElementById("purpose");
+const memberSelect=document.getElementById("member_no");
+const rdField=document.getElementById("rd_field");
+const accountField=document.getElementById("account_field");
+const transTypeField=document.getElementById("trans_type_field");
+const rdSelect=document.getElementById("rd_account_no");
+const accountSelect=document.getElementById("account_no");
+const pediField=document.getElementById("pedi_bank_field");
+const voucherField=document.getElementById("voucher_field");
+
+// PURPOSE SWITCH
+purposeSelect.addEventListener("change",function(){
+    const isRD=this.value==="RD";
+    rdField.style.display=isRD?"block":"none";
+    accountField.style.display=isRD?"none":"block";
+    transTypeField.style.display=isRD?"none":"block";
+    pediField.style.display=isRD?"none":"block";
+    voucherField.style.display="block";
+    if(isRD){document.getElementById("trans_type").value="Credit";}
+});
+
+// MEMBER CHANGE
+memberSelect.addEventListener("change",function(){
+    const memberNo=this.value;
+    const isRD=purposeSelect.value==="RD";
+    if(!memberNo)return;
+
+    if(isRD){
+        rdSelect.innerHTML='<option>Loading...</option>';
+        fetch(`/get_rd_by_member/${memberNo}`).then(r=>r.json()).then(data=>{
+            rdSelect.innerHTML='<option value="">Select RD Account</option>';
+            data.forEach(rd=>{
+                const opt=document.createElement("option");
+                opt.value=rd.rd_account_no;
+                opt.textContent=rd.rd_account_no;
+                rdSelect.appendChild(opt);
+            });
+        });
+    }
+    else{
+        accountSelect.innerHTML='<option>Loading...</option>';
+        fetch(`/get_accounts/${memberNo}`).then(r=>r.json()).then(data=>{
+            accountSelect.innerHTML='<option value="">Select Account</option>';
+            data.accounts.forEach(acc=>{
+                const opt=document.createElement("option");
+                opt.value=acc.account_no;
+                opt.textContent=`${acc.account_no} - ${acc.account_type}`;
+                opt.dataset.balance = acc.balance;
+                accountSelect.appendChild(opt);
+            });
+        });
+    }
+});
+
+const amountInput = document.getElementById("amount");
+
+// RD AUTO AMOUNT
+rdSelect.addEventListener("change", () => {
+    const rdNo = rdSelect.value;
+    if(!rdNo) return;
+
+    fetch(`/get_rd_details/${rdNo}`).then(r => r.json()).then(data => {
+        if(data.monthly_deposit){
+            amountInput.value = data.monthly_deposit;
+            amountInput.readOnly = true;
+        }
+    });
+});
+
+
+// Cheque/DD Toggle
+document.getElementById("source").addEventListener("change",function(){
+    const src=this.value;
+    ["cheque_no","dd_no","issued_bank","issue_date"].forEach(id=>{
+        const el=document.getElementById(id);
+        el.value="";
+        el.readOnly=true;
+    });
+
+    if(src==="Cheque"){ cheque_no.readOnly=false; issued_bank.readOnly=false; issue_date.readOnly=false; }
+    else if(src==="DD"){ dd_no.readOnly=false; issued_bank.readOnly=false; issue_date.readOnly=false; }
+});
+
+// AUTO LOAD
+document.addEventListener("DOMContentLoaded",()=>{
+    fetch("/get_active_members").then(r=>r.json()).then(data=>{
+        const list=document.getElementById("memberList");
+        data.forEach(m=>{
+            const opt=document.createElement("option");
+            opt.value=m.member_no;
+            opt.textContent=`${m.member_no} - ${m.member_name_eng}`;
+            list.appendChild(opt);
+        });
+    });
+
+    fetch("/get_pedi_banks").then(r=>r.json()).then(data=>{
+        const bankSel=document.getElementById("pedi_bank");
+        data.forEach(b=>{
+            const opt=document.createElement("option");
+            opt.value=b.head_name;
+            opt.textContent=b.head_name;
+            bankSel.appendChild(opt);
+        });
+    });
+});
+
+// VOUCHER FINAL VALUE
+document.getElementById("creditForm").addEventListener("submit",function(e){
+    const t=document.getElementById("voucher_type").value;
+    const n=document.getElementById("voucher_number").value.trim();
+    if(!t || !n){
+        alert("Voucher Type + Number required!");
+        e.preventDefault();
+        return;
+    }
+    document.getElementById("voucher_no").value = t + n;
+    document.getElementById("voucher_type_hidden").value = t;
+    document.getElementById("voucher_number_hidden").value = n;
+	
+	// FRONTEND BALANCE CHECK
+    const transType = document.getElementById("trans_type").value;
+    const selectedOption = accountSelect.selectedOptions[0];
+    if(transType === "Debit" && selectedOption && selectedOption.dataset.balance){
+        const balance = parseFloat(selectedOption.dataset.balance);
+        const amount = parseFloat(amountInput.value);
+        if(amount > balance){
+            alert(`❌ Insufficient balance! Available ₹${balance}`);
+            e.preventDefault();
+            amountInput.focus();
+            return;
+        }
+    }
+	
+	
+});
+
+
+const pediBank = document.getElementById("pedi_bank");
+
+// PURPOSE SWITCH
+purposeSelect.addEventListener("change", function () {
+    const isRD = this.value === "RD";
+
+    rdField.style.display = isRD ? "block" : "none";
+    accountField.style.display = isRD ? "none" : "block";
+    transTypeField.style.display = isRD ? "none" : "block";
+    pediField.style.display = isRD ? "none" : "block";
+    voucherField.style.display = "block";
+
+    if (isRD) {
+        document.getElementById("trans_type").value = "Credit";
+
+        // ❌ RD → Bank NOT required
+        pediBank.required = false;
+        pediBank.value = "";
+    } else {
+        // ✅ Normal → Bank REQUIRED
+        pediBank.required = true;
+    }
+});
+
+document.getElementById("creditForm").addEventListener("submit", function (e) {
+    if (purposeSelect.value === "Normal" && !pediBank.value) {
+        alert("Bank Name is required for Normal Transaction");
+        e.preventDefault();
+    }
+});
+</script>
+
+</body>
+</html>
+{% endblock %}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<style>
+
+@page {
+    size: A4;
+    margin: 35mm 20mm 20mm 20mm;   /* ऊपर margin बड़ा */
+
+    @top-center {
+        content: element(header);
+    }
+
+    @top-right {
+        content: "पृष्ठ " counter(page) " / " counter(pages);
+        font-size:12px;
+    }
+}
+
+body{
+    font-family:"Noto Serif Devanagari";
+}
+
+/* HEADER जो हर page पर repeat होगा */
+
+.header{
+    position:running(header);
+	width:100%;
+}
+
+/* संस्था नाम */
+
+.title{
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+}
+
+/* account type */
+
+.account{
+    text-align:center;
+    font-size:18px;
+    margin-top:5px;
+}
+
+/* member info */
+
+.info{
+    position: fixed;
+    top: -50px;        /* ऊपर से दूरी */
+    left: 3mm;       /* page margin के बराबर */
+    font-size:14px;
+    text-align:left;
+	bottom: 5px;
+}
+
+/* table */
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+}
+
+th,td{
+    border:1px solid black;
+    padding:6px;
+    font-size:13px;
+}
+
+th{
+    background:#eaeaea;
+}
+
+.right{
+    text-align:right;
+}
+
+/* table header repeat */
+
+thead{
+    display:table-header-group;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+
+<div class="title">
+तकनीकी कर्मचारी सहकारी साख संस्था मर्यादित इंदौर
+</div>
+
+<div class="account">
+{{account_type}}
+</div>
+</div>
+
+<div class="info">
+सदस्यता क्रमांक : {{member_no}} <br>
+सदस्य का नाम : {{member_name}} <br>
+खाता क्रमांक : {{account_no}}
+</div>
+
+
+
+
+
+<table>
+
+<thead>
+<tr>
+<th>दिनांक</th>
+<th>विवरण</th>
+<th>वाउचर नं.</th>
+<th>जमा</th>
+<th>नामे</th>
+<th>शेष</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for row in data %}
+
+<tr>
+<td>{{row.date}}</td>
+<td>{{row.remark}}</td>
+<td>{{row.trans_no}}</td>
+<td class="right">{{row.credit}}</td>
+<td class="right">{{row.debit}}</td>
+<td class="right">{{row.balance}}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</body>
+</html>
