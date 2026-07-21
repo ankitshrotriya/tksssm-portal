@@ -3,3 +3,4 @@ Flask-Login
 Flask-SQLAlchemy
 Werkzeug
 psycopg2-binary
+gunicorn
