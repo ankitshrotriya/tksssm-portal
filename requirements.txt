@@ -1,9 +1,0 @@
-Flask
-gunicorn
-psycopg2-binary
-pandas
-flask-cors
-apscheduler
-python-dateutil
-requests
-weasyprint
