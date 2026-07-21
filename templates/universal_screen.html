@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .card-box {
+        max-width: 950px;
+        margin: auto;
+        background: #ffffff;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.15);
+    }
+    .section-title {
+        background: #003b8e;
+        color: white;
+        padding: 8px 12px;
+        font-size: 16px;
+        border-radius: 6px;
+        margin-top: 18px;
+        font-weight: 600;
+    }
+    table th {
+        background: #003b8e;
+        color: white;
+    }
+    table td,th {
+        text-align: center;
+        padding: 8px;
+    }
+    .btn-danger { padding: 5px 8px; }
+</style>
+
+<div class="card-box">
+    <h3 style="text-align:center; color:#003b8e; font-weight:700;">
+        🔥 Universal Multi Transaction Screen
+    </h3><br>
+
+    <form id="universalForm">
+
+        <!-- Voucher Section -->
+        <div class="section-title">Voucher Details</div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label>Voucher Type *</label>
+                <select id="voucher_type" class="form-control" required>
+                    <option value="">Select</option>
+                    <option value="MR/">MR/</option>
+                    <option value="TR/">TR/</option>
+                    <option value="NV/">NV/</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label>Voucher Number *</label>
+                <input type="text" id="voucher_number" class="form-control">
+            </div>
+        </div>
+
+        <!-- Member Section -->
+        <div class="section-title">Member Details</div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label>Member *</label>
+                <input list="memberList" id="member_no" class="form-control" required>
+                <datalist id="memberList"></datalist>
+            </div>
+            <div class="col-md-6">
+                <label>Member Name</label>
+                <input type="text" id="member_name" class="form-control" readonly>
+            </div>
+        </div>
+
+        <!-- Transaction Entry -->
+        <div class="section-title">Transaction Entry</div>
+        <div class="row g-3">
+
+            <div class="col-md-4">
+                <label>Transaction Type *</label>
+                <select id="trans_type" class="form-control">
+                    <option value="Credit">Credit</option>
+                    <option value="Debit">Debit</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label>Category *</label>
+                <select id="category" class="form-control">
+                    <option value="">Select</option>
+                    <option value="Saving Account">Saving Account</option>
+                    <option value="Share Account">Share Account</option>
+                    <option value="Anivarya Sanchay">Anivarya Sanchay</option>
+                    <option value="RD">RD Installment</option>
+                    <option value="Loan">Loan EMI</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label>Amount *</label>
+                <input type="number" id="amount" min="1" class="form-control">
+            </div>
+
+            <div class="col-md-12" id="extra_field"></div>
+
+            <div class="col-md-12">
+                <label>Remark</label>
+                <input type="text" id="remark" class="form-control">
+            </div>
+        </div>
+
+        <button type="button" id="addRowBtn" class="btn btn-success mt-3 w-100">
+            ➕ Add Transaction to List
+        </button><br><br>
+
+        <!-- Transaction List Table -->
+        <div id="listBox" style="display:none;">
+            <h5>🧾 Transaction Summary</h5>
+            <table class="table table-bordered" id="listTable">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Value</th>
+                    <th>Amount</th>
+                    <th>Remark</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <h5 style="text-align:right; font-weight:700;">
+                Total: ₹ <span id="grandTotal">0.00</span>
+            </h5>
+
+            <button type="button" class="btn btn-primary w-100" id="submitAllBtn">
+                💾 Submit All Transactions
+            </button>
+        </div>
+
+    </form>
+</div>
+
+
+<script>
+let dataList = [];
+let count = 0;
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("/get_active_members").then(r => r.json()).then(data => {
+        const list = document.getElementById("memberList");
+        data.forEach(m => {
+            const opt = document.createElement("option");
+            opt.value = m.member_no;
+            opt.textContent = `${m.member_no} - ${m.member_name_eng}`;
+            list.appendChild(opt);
+        });
+    });
+});
+
+
+document.getElementById("category").addEventListener("change", function () {
+    let cat = this.value;
+    let box = document.getElementById("extra_field");
+
+    if(cat === "RD"){
+        box.innerHTML = `
+            <label>RD Account *</label>
+            <select id="rd_account" class="form-control"></select>`;
+        loadRD();
+    }
+    else if(cat === "Loan"){
+        box.innerHTML = `
+            <label>Loan Account *</label>
+            <select id="loan_head" class="form-control"></select>`;
+        loadLoan();
+    }
+    else{
+        box.innerHTML = "";
+    }
+});
+
+
+function loadRD(){
+    let m = member_no.value;
+    fetch(`/get_rd_by_member/${m}`).then(r => r.json()).then(data=>{
+        rd_account.innerHTML="";
+        data.forEach(x => {
+            let opt = document.createElement("option");
+            opt.value = x.rd_account_no;
+            opt.textContent = x.rd_account_no;
+            rd_account.appendChild(opt);
+        });
+    });
+}
+
+function loadLoan(){
+    fetch(`/get_loan_heads`).then(r=>r.json()).then(data=>{
+        loan_head.innerHTML="";
+        data.forEach(x=>{
+            let opt = document.createElement("option");
+            opt.value = x;
+            opt.textContent = x;
+            loan_head.appendChild(opt);
+        });
+    });
+}
+
+
+document.getElementById("addRowBtn").addEventListener("click", () => {
+    let obj = {
+        type: trans_type.value,
+        category: category.value,
+        value: (category.value==="RD" ? rd_account.value :
+               category.value==="Loan" ? loan_head.value :
+               "-"),
+        amount: parseFloat(amount.value),
+        remark: remark.value
+    };
+
+    if(!obj.category || !obj.amount){
+        alert("⚠ All required fields must be filled!");
+        return;
+    }
+
+    dataList.push(obj);
+    count++;
+
+    document.getElementById("listBox").style.display="block";
+
+    let row = `
+    <tr>
+        <td>${count}</td>
+        <td>${obj.type}</td>
+        <td>${obj.category}</td>
+        <td>${obj.value}</td>
+        <td>₹${obj.amount.toFixed(2)}</td>
+        <td>${obj.remark}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeRow(${count-1})">❌</button></td>
+    </tr>`;
+
+    listTable.querySelector("tbody").insertAdjacentHTML("beforeend", row);
+
+    updateTotal();
+});
+
+
+function removeRow(i){
+    dataList.splice(i,1);
+    reloadTable();
+}
+
+
+function reloadTable(){
+    count = 0;
+    listTable.querySelector("tbody").innerHTML = "";
+    dataList.forEach(x=>{
+        count++;
+        let r = `
+        <tr>
+            <td>${count}</td>
+            <td>${x.type}</td>
+            <td>${x.category}</td>
+            <td>${x.value}</td>
+            <td>₹${x.amount.toFixed(2)}</td>
+            <td>${x.remark}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="removeRow(${count-1})">❌</button></td>
+        </tr>`;
+        listTable.querySelector("tbody").insertAdjacentHTML("beforeend", r);
+    });
+    updateTotal();
+}
+
+
+function updateTotal(){
+    let t = dataList.reduce((a,b)=>a+b.amount,0);
+    grandTotal.textContent = t.toFixed(2);
+}
+
+
+document.getElementById("submitAllBtn").addEventListener("click", () => {
+    if(dataList.length === 0){
+        alert("⚠ Add at least 1 transaction!");
+        return;
+    }
+
+    let payload = {
+        voucher_no: voucher_type.value + voucher_number.value,
+        member_no: member_no.value,
+        transactions: dataList
+    };
+
+    fetch("/universal_post", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        alert(d.message);
+        location.reload();
+    });
+});
+</script>
+
+{% endblock %}

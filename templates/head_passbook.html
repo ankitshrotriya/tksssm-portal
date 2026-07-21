@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="text-align:center; margin-bottom:25px;">📘 Head-wise Loan Passbook</h2>
+
+<div class="card shadow-lg" style="max-width:750px; margin:auto; padding:25px; border-radius:15px; background:#fdfdfd;">
+
+    <!-- FILTER -->
+    <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px; align-items:flex-end;">
+        <!-- Loan Head -->
+        <div style="flex:1; min-width:200px;">
+            <label style="font-weight:600; font-size:15px;">🏦 Select Loan Head</label>
+            <select id="headSelect" class="form-control" style="border-radius:8px; padding:10px;">
+                <option value="">-- Select Head --</option>
+            </select>
+        </div>
+
+        <!-- Start Date -->
+        <div style="flex:1; min-width:150px;">
+            <label style="font-weight:600; font-size:15px;">📅 Start Date</label>
+            <input type="date" id="startDate" class="form-control" style="border-radius:8px; padding:10px;">
+        </div>
+
+        <!-- End Date -->
+        <div style="flex:1; min-width:150px;">
+            <label style="font-weight:600; font-size:15px;">📅 End Date</label>
+            <input type="date" id="endDate" class="form-control" style="border-radius:8px; padding:10px;">
+        </div>
+    </div>
+
+    <!-- BUTTONS -->
+    <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="btn btn-primary w-100" style="border-radius:8px; font-size:16px; background:#0d6efd; color:white;" onclick="loadHeadPassbook()">🔍 View Passbook</button>
+        <button class="btn btn-secondary w-50" style="border-radius:8px; font-size:16px; background:#0d6efd; color:white;" onclick="resetFilters()">🔄 Reset</button>
+    </div>
+
+    <hr>
+
+    <div id="resultArea" style="margin-top:15px;"></div>
+</div>
+
+
+<!-- SAME TABLE DESIGN -->
+<style>
+.styled-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 10px;
+  font-size: 15px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0px 3px 10px rgba(0,0,0,0.1);
+}
+
+.styled-table thead tr {
+  background: linear-gradient(90deg, #0d6efd, #4dabff);
+  color: white;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+}
+
+.styled-table tbody tr:nth-child(even) {
+  background-color: #f2f7ff;
+}
+
+.styled-table tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.styled-table tbody tr:hover {
+  background: #dceeff;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.credit {
+  color: green;
+  font-weight: bold;
+}
+
+.debit {
+  color: red;
+  font-weight: bold;
+}
+</style>
+
+
+<script>
+// ---- Load Loan Heads ----
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("/get_loan_heads")
+        .then(res => res.json())
+        .then(response => {
+            if(response.status === "success"){
+                let select = document.getElementById("headSelect");
+                response.data.forEach(h => {
+                    let opt = document.createElement("option");
+                    opt.value = h.id;
+                    opt.text = h.head_name;
+                    select.appendChild(opt);
+                });
+            } else {
+                alert("❌ Error loading loan heads!");
+            }
+        })
+        .catch(err => console.error(err));
+});
+
+
+// ---- Load Passbook ----
+function loadHeadPassbook(){
+    let headId = document.getElementById("headSelect").value;
+    let start = document.getElementById("startDate").value;
+    let end = document.getElementById("endDate").value;
+    let result = document.getElementById("resultArea");
+
+    if (!headId){
+        result.innerHTML = `<p style='color:red; font-weight:bold;'>⚠ Please select a loan head.</p>`;
+        return;
+    }
+
+    result.innerHTML = "<p>⏳ Loading transactions...</p>";
+
+    fetch(`/get_head_passbook/${headId}`)
+        .then(res => res.json())
+        .then(response => {
+            if(response.status !== "success"){
+                result.innerHTML = `<p style='color:red;'>❌ ${response.message}</p>`;
+                return;
+            }
+
+            let data = response.data;
+
+            // FRONTEND DATE FILTER
+            if(start) data = data.filter(t => t.trans_date >= start);
+            if(end) data = data.filter(t => t.trans_date <= end);
+
+            if (data.length === 0){
+                result.innerHTML = "<p style='color:red;'>⚠ No transactions found for this head in selected date range.</p>";
+                return;
+            }
+
+            let html = `
+            <div style="overflow-x:auto;">
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Loan No</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Amount (₹)</th>
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            data.forEach(t => {
+                let cls = t.trans_type.toLowerCase() === "debit" ? "debit" : "credit";
+
+                html += `
+                <tr>
+                    <td>${t.id}</td>
+                    <td>${t.loan_no || "-"}</td>
+                    <td>${t.trans_date}</td>
+                    <td class="${cls}">${t.trans_type}</td>
+                    <td class="${cls}">₹ ${t.amount.toFixed(2)}</td>
+                    <td>${t.remark || "-"}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            result.innerHTML = html;
+        });
+}
+
+
+// ---- Reset ----
+function resetFilters(){
+    document.getElementById("headSelect").value = "";
+    document.getElementById("startDate").value = "";
+    document.getElementById("endDate").value = "";
+    document.getElementById("resultArea").innerHTML = "";
+}
+</script>
+
+{% endblock %}

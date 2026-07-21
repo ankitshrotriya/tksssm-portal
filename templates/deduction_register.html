@@ -1,0 +1,605 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+.card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.row{display:flex;gap:20px;flex-wrap:wrap}
+.col{flex:1;min-width:250px}
+label{font-weight:bold;display:block;margin-bottom:8px}
+input,select{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer}
+.btn-search{background:#0d6efd;color:#fff}
+.btn-reset{background:#6c757d;color:#fff}
+.actions{margin-top:30px;display:flex;gap:10px}
+.report{margin-top:25px;border:1px solid #ddd;border-radius:8px;padding:20px;background:#fff}
+.report-header{
+margin-bottom:15px;
+border-bottom:2px solid black;
+padding-bottom:15px;
+}
+
+.header-table{
+width:100%;
+border:none !important;
+margin:0;
+}
+
+.header-table td{
+border:none !important;
+}
+
+.left-header{
+
+width:22%;
+
+vertical-align:top;
+
+font-size:15px;
+
+}
+
+.center-header{
+
+width:56%;
+
+text-align:center;
+
+}
+
+.center-header h2{
+
+margin:2px;
+
+font-size:28px;
+
+}
+
+.center-header h3{
+
+margin:5px;
+
+font-size:22px;
+
+}
+
+.right-header{
+
+width:22%;
+
+text-align:right;
+
+vertical-align:top;
+
+font-weight:bold;
+
+}
+
+.report-table{
+
+width:100%;
+
+border-collapse:collapse;
+
+margin-top:10px;
+
+}
+
+.report-table th{
+
+background:#efefef;
+
+color:black;
+
+}
+
+.report-table th,
+
+.report-table td{
+
+border:1px solid black;
+
+padding:4px;
+
+font-size:12px;
+
+}
+
+.header-table,
+.header-table tr,
+.header-table td{
+    border:none !important;
+}
+
+.left-header{
+    text-align:left;
+}
+
+.center-header{
+    text-align:center;
+}
+
+.right-header{
+    text-align:right;
+}
+
+
+@media print{
+
+button{
+
+display:none;
+
+}
+
+body{
+
+margin:0;
+
+}
+
+.card{
+
+box-shadow:none;
+
+border:none;
+
+}
+
+}
+
+.btn{
+    opacity:1 !important;
+    transition:0.2s;
+}
+
+.btn:hover{
+    opacity:1 !important;
+    filter:none !important;
+}
+
+.btn:focus{
+    opacity:1 !important;
+    box-shadow:none !important;
+}
+
+
+.btn-success{
+    background:#198754 !important;
+    color:#fff !important;
+    border:none;
+}
+
+.btn-primary{
+    background:#0d6efd !important;
+    color:#fff !important;
+    border:none;
+}
+
+.btn-secondary{
+    background:#6c757d !important;
+    color:#fff !important;
+    border:none;
+}
+
+
+```css
+/*========================
+ BUTTON FIX
+=========================*/
+
+.actions{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:20px;
+}
+
+.actions button{
+    min-width:170px;
+    height:42px;
+}
+
+/* Override Bootstrap */
+
+button,
+.btn{
+
+    opacity:1 !important;
+
+    color:#fff !important;
+
+    border:none !important;
+
+    text-decoration:none !important;
+
+    box-shadow:none !important;
+
+    transition:.2s;
+
+}
+
+button:hover,
+.btn:hover{
+
+    opacity:1 !important;
+
+    filter:none !important;
+
+    color:#fff !important;
+
+    transform:translateY(-1px);
+
+}
+
+button:focus,
+.btn:focus{
+
+    color:#fff !important;
+
+    outline:none !important;
+
+    box-shadow:none !important;
+
+}
+
+button:active,
+.btn:active{
+
+    color:#fff !important;
+
+    transform:none !important;
+
+}
+
+/* Search */
+
+.btn-search{
+
+    background:#0d6efd !important;
+
+}
+
+/* Reset */
+
+.btn-reset{
+
+    background:#6c757d !important;
+
+}
+
+/* PDF */
+
+.btn-success{
+
+    background:#198754 !important;
+
+}
+
+/* Excel */
+
+.btn-primary{
+
+    background:#0d6efd !important;
+
+}
+
+/* Print */
+
+.btn-secondary{
+
+    background:#343a40 !important;
+
+}
+
+/* Select2 */
+
+.select2-container{
+
+    width:100% !important;
+
+}
+```
+
+</style>
+
+<div class="card">
+<h2>Monthly Deduction Register</h2>
+
+<form method="post" action="/deduction_register/search">
+
+<div class="row">
+
+<div class="col">
+<label>Month & Year</label>
+<input
+type="month"
+name="month_year"
+value="{{ selected_month }}"
+required>
+</div>
+
+<div class="col">
+<label>Company</label>
+<select name="company_code" id="company" required>
+
+<option value="">Select Company</option>
+
+{% for c in companies %}
+
+<option value="{{ c[0] }}"
+{% if selected_company==c[0] %}
+selected
+{% endif %}
+>
+
+{{ c[0] }} - {{ c[1] }}
+
+</option>
+
+{% endfor %}
+
+</select>
+</div>
+
+
+
+
+
+</div>
+
+<div class="actions">
+
+    <button type="submit" class="btn btn-search">
+        🔍 Search
+    </button>
+
+    <button type="button" class="btn btn-success"
+            onclick="downloadPDF()">
+        📄 PDF
+    </button>
+
+    <button type="button" class="btn btn-primary"
+            onclick="downloadExcel()">
+        📊 Excel
+    </button>
+
+</div>
+
+</form>
+
+
+
+<div class="report">
+
+<div class="report-header">
+
+<table class="header-table">
+
+<tr>
+
+<td class="left-header">
+
+<b>
+{% if report_month %}
+{{ report_month }}
+{% endif %}
+</b>
+
+<br><br>
+
+<b>दिनांक :</b> {% if report_date %}
+{{ report_date }}
+{% endif %}
+
+<br><br>
+
+<b>Deduction Code :</b> 117
+
+</td>
+
+<td class="center-header">
+
+<h2>तकनीकी कर्मचारी सहकारी साख संस्था मर्यादित</h2>
+
+<div>
+
+38. वेयर हाउस रोड, ओल्ड पावर हाउस कम्पाउण्ड, इन्दौर
+
+</div>
+
+<h3>
+
+मासिक कटौती पत्रक
+
+</h3>
+
+<h2 style="margin-top:10px;font-size:24px;">
+{{ company_name|upper }}
+</h2>
+
+</td>
+
+<td class="right-header">
+
+<b>Page 1 of 1</b>
+
+<br><br>
+
+<b>रसीद क्र.</b> __________________
+
+<br><br>
+
+<b>दिनांक</b> __________________
+
+</td>
+
+</tr>
+
+</table>
+
+</div>
+
+<table class="report-table">
+<thead>
+
+<tr>
+
+<th rowspan="2">Record No.</th>
+
+<th rowspan="2">मेंबर नं.</th>
+
+<th rowspan="2">एम्पलाई नं.</th>
+
+<th rowspan="2">सदस्य का नाम</th>
+
+<th rowspan="2">अनिवार्य<br>संचय</th>
+
+<th rowspan="2">रेकिरिंग<br>डिपाजिट</th>
+
+<th rowspan="2">जमानती<br>क़र्ज़</th>
+
+<th rowspan="2">विविध<br>क़र्ज़</th>
+
+<th rowspan="2">चिकित्सा<br>क़र्ज़</th>
+
+<th rowspan="2">दोपहिया<br>वाहन क़र्ज़</th>
+
+<th rowspan="2">माकन<br>तरण क़र्ज़</th>
+
+<th rowspan="2">ब्याज</th>
+
+<th rowspan="2">बीमा<br>सदस्यों का</th>
+
+<th rowspan="2">कुल</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% if report and report|length > 0 %}
+
+    {% for row in report %}
+
+    <tr>
+
+<td>{{ loop.index }}</td>
+
+<td>{{ row[1] }}</td>
+
+<td>{{ row[0] }}</td>
+
+<td>{{ row[2] }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[3]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[4]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[5]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[6]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[7]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[8]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[9]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[10]|float) }}</td>
+
+<td class="text-right">{{ "%.2f"|format(row[11]|float) }}</td>
+
+<td class="text-right">
+<b>{{ "%.2f"|format(row[12]|float) }}</b>
+</td>
+
+</tr>
+
+    {% endfor %}
+
+{% else %}
+
+<tr>
+
+<td colspan="9" style="text-align:center;color:red;font-weight:bold">
+
+No Record Found
+
+</td>
+
+</tr>
+
+{% endif %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(function(){
+    $("#company").select2({
+        width:'100%',
+        placeholder:'Select Company'
+    });
+});
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+
+function downloadPDF(){
+
+var element=document.querySelector(".report");
+
+html2pdf()
+
+.from(element)
+
+.set({
+
+margin:0.3,
+
+filename:"Deduction_Register.pdf",
+
+image:{type:'jpeg',quality:1},
+
+html2canvas:{scale:2},
+
+jsPDF:{unit:'in',format:'a4',orientation:'landscape'}
+
+})
+
+.save();
+
+}
+
+</script>
+
+<script>
+
+function downloadExcel(){
+
+var table=document.querySelector(".report-table");
+
+var wb=XLSX.utils.table_to_book(table,{sheet:"Report"});
+
+XLSX.writeFile(wb,"Deduction_Register.xlsx");
+
+}
+
+</script>
+
+{% endblock %}

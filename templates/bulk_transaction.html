@@ -1,0 +1,307 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🧾 Multi Transaction</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+ body{background:#f0f4f8;font-family:'Poppins',sans-serif}
+ .form-card{background:#fff;padding:30px;border-radius:12px;margin-top:30px;box-shadow:0 6px 15px rgba(0,0,0,0.1)}
+ .form-title{text-align:center;font-weight:600;font-size:1.6rem;margin-bottom:25px;color:#00368e}
+ table th{background:#f1f5ff}
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="form-card">
+<h3 class="form-title">🧾 Multi Transaction Entry</h3>
+
+<div class="row g-3">
+
+<!-- TRANSACTION TYPE -->
+<div class="col-md-4">
+<label>Transaction Type *</label>
+<select id="txn_direction" class="form-select">
+  <option value="P2M">Pedi Head ➝ Member</option>
+  <option value="M2P">Member ➝ Pedi Head</option>
+  <option value="P2P">Pedi Head ➝ Pedi Head</option>
+</select>
+</div>
+
+<!-- SOURCE PEDI -->
+<div class="col-md-4">
+<label>Source Pedi Head *</label>
+<select id="pedi_head" class="form-select">
+<option value="">Select Source Pedi</option>
+{% for id, head in pedi_heads %}
+<option value="{{ head }}">{{ head }}</option>
+{% endfor %}
+</select>
+</div>
+
+<!-- TARGET PEDI -->
+<div class="col-md-4" id="targetPediDiv" style="display:none;">
+<label>Target Pedi Head *</label>
+<select id="target_pedi_head" class="form-select">
+<option value="">Select Target Pedi</option>
+{% for id, head in pedi_heads %}
+<option value="{{ head }}">{{ head }}</option>
+{% endfor %}
+</select>
+</div>
+
+<!-- MEMBER -->
+<div class="col-md-4" id="memberDiv">
+<label>Member *</label>
+<input list="memberList" id="member_no" class="form-control">
+<datalist id="memberList">
+{% for m in members %}
+<option value="{{ m[0] }}">{{ m[0] }} - {{ m[1] }}</option>
+{% endfor %}
+</datalist>
+</div>
+
+<!-- ACCOUNT TYPE -->
+<div class="col-md-4" id="accTypeDiv">
+<label>Account Type *</label>
+<select id="account_type" class="form-select">
+<option value="">Select Type</option>
+<option>Saving Account</option>
+<option>Anivarya Sanchay</option>
+<option>Share Account</option>
+<option>Loan</option>
+</select>
+</div>
+
+<!-- ACCOUNT NO -->
+<div class="col-md-4" id="accDiv">
+<label>Account / Loan No</label>
+<select id="account_no" class="form-select" disabled>
+<option value="">Select Account</option>
+</select>
+</div>
+
+<!-- AMOUNT -->
+<div class="col-md-4">
+<label>Amount *</label>
+<input id="amount" type="number" class="form-control" min="1">
+</div>
+
+<!-- VOUCHER -->
+<div class="col-md-4">
+<label>Voucher No *</label>
+<input id="voucher_no" class="form-control" readonly>
+</div>
+
+</div>
+
+<div class="text-center mt-4">
+<button type="button" class="btn btn-success" onclick="addRow()">➕ Add</button>
+</div>
+
+<hr class="my-4">
+
+<div class="table-responsive">
+<table class="table table-bordered" id="tempTable">
+<thead>
+<tr>
+<th>#</th>
+<th>Direction</th>
+<th>Source Pedi</th>
+<th>Target Pedi</th>
+<th>Member</th>
+<th>Account</th>
+<th>Amount</th>
+<th>Voucher</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="text-center mt-3">
+<button class="btn btn-primary" onclick="submitAll()">💾 Submit All Transactions</button>
+</div>
+
+</div>
+</div>
+
+<script>
+let rows = [];
+
+txn_direction.addEventListener('change', () => {
+
+  const isP2P = txn_direction.value === 'P2P';
+
+  /* TARGET PEDI */
+  targetPediDiv.style.display = isP2P ? 'block' : 'none';
+
+  /* MEMBER RELATED FIELDS */
+  memberDiv.style.display   = isP2P ? 'none' : 'block';
+  accTypeDiv.style.display  = isP2P ? 'none' : 'block';
+  accDiv.style.display      = isP2P ? 'none' : 'block';
+
+});
+
+/* 🔐 FETCH VOUCHER */
+function fetchVoucher(){
+  fetch('/generate_voucher')
+    .then(r => r.json())
+    .then(d => voucher_no.value = d.voucher_no);
+}
+
+/* 🔁 ACCOUNT / LOAN FETCH (FIXED ✅) */
+function fetchAccountNo(){
+  const m = member_no.value;
+  const t = account_type.value;
+  const acc = account_no;
+
+  acc.innerHTML = '<option value="">Loading...</option>';
+  acc.disabled = true;
+
+  if(!m || !t){
+    acc.innerHTML = '<option value="">Select Account</option>';
+    return;
+  }
+
+  /* ✅ LOAN CASE */
+  if(t === 'Loan'){
+    fetch(`/get_loan_no_by_member/${m}`)
+      .then(r => r.json())
+      .then(d => {
+        acc.innerHTML = '<option value="">Select Loan</option>';
+        if(d.loan_nos && d.loan_nos.length){
+          d.loan_nos.forEach(l=>{
+            acc.innerHTML += `
+              <option value="${l.loan_no}">
+                ${l.loan_no} (${l.loan_head})
+              </option>`;
+          });
+          acc.disabled = false;
+        } else {
+          acc.innerHTML = '<option value="">No Loan Found</option>';
+        }
+      });
+    return;
+  }
+
+  /* ✅ NORMAL ACCOUNT */
+  fetch(`/get_account_no_bulk/${m}/${t}`)
+    .then(r => r.json())
+    .then(d => {
+      acc.innerHTML = '<option value="">Select Account</option>';
+      if(d.accounts && d.accounts.length){
+        d.accounts.forEach(a=>{
+          const no = a.account_no || a;
+          acc.innerHTML += `<option value="${no}">${no}</option>`;
+        });
+        acc.disabled = false;
+      } else {
+        acc.innerHTML = '<option value="">No Account Found</option>';
+      }
+    });
+}
+
+member_no.addEventListener('input', fetchAccountNo);
+account_type.addEventListener('change', fetchAccountNo);
+
+/* ➕ ADD ROW */
+function addRow(){
+
+  if(!txn_direction.value || !pedi_head.value || !amount.value){
+    alert('Required fields missing');
+    return;
+  }
+
+  if(txn_direction.value === 'P2P'){
+    if(!target_pedi_head.value){
+      alert('Target Pedi required');
+      return;
+    }
+  } else {
+    if(!member_no.value || !account_type.value || !account_no.value){
+      alert('Member & Account required');
+      return;
+    }
+  }
+  
+  rows.push({
+  txn_direction: txn_direction.value,
+  pedi_head: pedi_head.value,
+  target_pedi_head: target_pedi_head.value || null,
+  member_no: member_no.value || null,
+  account_no: account_no.value || null,
+  account_type: account_type.value,   // ✅ THIS WAS MISSING
+  amount: amount.value,
+  voucher_no: voucher_no.value
+});
+
+
+
+
+  render();
+
+  /* RESET FORM */
+  member_no.value = '';
+  account_type.value = '';
+  account_no.innerHTML = '<option value="">Select Account</option>';
+  account_no.disabled = true;
+  amount.value = '';
+}
+
+/* RENDER TABLE */
+function render(){
+  const tb = tempTable.querySelector('tbody');
+  tb.innerHTML='';
+  rows.forEach((r,i)=>{
+    tb.innerHTML+=`
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.txn_direction}</td>
+      <td>${r.pedi_head}</td>
+      <td>${r.target_pedi_head || '-'}</td>
+      <td>${r.member_no || '-'}</td>
+      <td>${r.account_no || '-'}</td>
+      <td>₹${r.amount}</td>
+      <td>${r.voucher_no}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="del(${i})">❌</button></td>
+    </tr>`;
+  });
+}
+
+function del(i){
+  if(confirm('Delete this row?')){
+    rows.splice(i,1);
+    render();
+  }
+}
+
+/* 💾 SUBMIT */
+function submitAll(){
+  if(!rows.length){
+    alert('No rows added');
+    return;
+  }
+
+  fetch('/bulk_transaction/save',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(rows)
+  }).then(()=>{
+    alert('Transactions Saved Successfully');
+    rows=[];
+    render();
+    fetchVoucher();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', fetchVoucher);
+</script>
+
+</body>
+</html>
+{% endblock %}

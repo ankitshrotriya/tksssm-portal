@@ -1,0 +1,108 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<!-- jQuery FIRST -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<section class="card shadow-lg" style="max-width:700px; margin:auto; padding:25px; border-radius:15px; background:#fdfdfd;">
+
+  <h2 style="text-align:center; margin-bottom:25px; color:#0d6efd;">💰 RD Pre-Closure</h2>
+
+  <form method="post" id="rdForm" action="/rd/pre_close" style="display:grid; gap:20px;">
+
+    <div>
+      <label style="font-weight:600;">👤 Member:</label>
+      <select id="member_no" name="member_no" class="form-control" required onchange="loadRDs()" style="border-radius:8px; padding:10px;">
+        <option value="">--Select Member--</option>
+        {% for m in members %}
+        <option value="{{ m[0] }}">{{ m[1] }} ({{ m[0] }})</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label style="font-weight:600;">🏦 RD Account:</label>
+      <select id="rd_account_no" name="rd_account_no" class="form-control" required style="border-radius:8px; padding:10px;">
+        <option value="">--Select RD--</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-success" style="border-radius:8px; font-size:16px; background:#0d6efd; color:white;">
+      💳 Pre-Close RD
+    </button>
+
+  </form>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  function loadRDs() {
+    const member_no = document.getElementById("member_no").value;
+    const rdList = document.getElementById("rd_account_no");
+    rdList.innerHTML = "<option value=''>Loading...</option>";
+
+    fetch(`/get_rd_by_member/${member_no}`)
+      .then(res => res.json())
+      .then(data => {
+        rdList.innerHTML = "<option value=''>--Select RD--</option>";
+        data.forEach(rd => {
+          rdList.innerHTML += `<option value="${rd.rd_account_no}">${rd.rd_account_no}</option>`;
+        });
+      });
+  }
+
+  document.getElementById("rdForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch("/rd/pre_close", {
+      method: "POST",
+      body: formData
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+
+          Swal.fire({
+            title: "RD Pre-Closed Successfully!",
+            html: `
+              <b>RD No:</b> ${data.rd}<br><br>
+              <table class="table table-bordered">
+                <tr><th>Installments Paid</th><td>${data.installments_paid}</td></tr>
+                <tr><th>Interest Given</th><td>₹ ${data.interest_amount}</td></tr>
+                <tr><th>Remaining Principal</th><td>₹ ${data.remaining_principal}</td></tr>
+                <tr><th>Total Payout</th><td><b>₹ ${data.total_payout}</b></td></tr>
+              </table>
+            `,
+            icon: "success"
+          });
+
+          this.reset();
+          document.getElementById("rd_account_no").innerHTML = "<option value=''>--Select RD--</option>";
+
+        } else {
+          Swal.fire("Error", data.message, "error");
+        }
+      })
+      .catch(() => Swal.fire("Server Error", "Please try again!", "error"));
+  });
+</script>
+
+
+
+<script>
+$(function() {
+    $('#member_no').select2({
+        placeholder: "Search Members...",
+        allowClear: true
+    });
+});
+</script>
+
+{% endblock %}

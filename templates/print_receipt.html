@@ -1,0 +1,502 @@
+
+<html>
+
+<head>
+
+<title>Receipt</title>
+
+<style>
+
+@page{
+    size:A4;
+    margin:10mm;
+}
+
+body{
+
+    font-family:
+    "Nirmala UI",
+    "Mangal",
+    Arial;
+
+    background:#f2f2f2;
+
+    margin:0;
+    padding:0;
+}
+
+.receipt{
+
+    width:180mm;
+
+    margin:10px auto;
+
+    background:#fff;
+
+    padding:12mm;
+
+    box-sizing:border-box;
+
+    border:1px solid #000;
+
+    border-radius:8px;
+
+    box-shadow:0 0 10px rgba(0,0,0,.08);
+}
+
+.heading{
+
+    text-align:center;
+
+    padding-bottom:12px;
+
+    border-bottom:2px solid #000;
+
+    margin-bottom:20px;
+}
+
+.heading .reg{
+
+    font-size:14px;
+
+    font-weight:bold;
+}
+
+.heading .title{
+
+    font-size:28px;
+
+    font-weight:700;
+
+    margin-top:8px;
+
+    line-height:1.4;
+}
+
+.heading .address{
+
+    margin-top:10px;
+
+    font-size:16px;
+
+    line-height:1.7;
+}
+
+.receipt-title{
+
+    margin-top:18px;
+
+    font-size:24px;
+
+    font-weight:bold;
+
+    letter-spacing:1px;
+}
+
+.top{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    margin-bottom:12px;
+
+    font-size:16px;
+}
+
+.info-box{
+
+    margin-bottom:10px;
+
+    font-size:16px;
+}
+
+.label{
+
+    font-weight:bold;
+}
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+    margin-top:20px;
+
+    table-layout:fixed;
+}
+
+table th,
+table td{
+
+    border:1px solid #666;
+
+    padding:10px;
+
+    font-size:15px;
+
+    word-wrap:break-word;
+}
+
+table th{
+
+    background:#efefef;
+
+    text-align:center;
+}
+
+table td{
+
+    vertical-align:middle;
+}
+
+.amount{
+
+    text-align:right;
+
+    font-weight:600;
+}
+
+.total{
+
+    margin-top:25px;
+
+    text-align:right;
+
+    font-size:24px;
+
+    font-weight:bold;
+}
+
+.sign{
+
+    margin-top:70px;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    font-size:16px;
+
+    font-weight:600;
+}
+
+.print-btn{
+
+    margin-top:30px;
+
+    padding:12px 25px;
+
+    background:#0d6efd;
+
+    color:#fff;
+
+    border:none;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-size:16px;
+}
+.new-receipt-btn{
+
+    display:inline-block;
+
+    margin-top:30px;
+
+    padding:12px 28px;
+
+    background:#198754;
+
+    color:#fff;
+
+    text-decoration:none;
+
+    border-radius:10px;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    box-shadow:0 4px 12px rgba(25,135,84,.25);
+
+    transition:.3s ease;
+
+}
+
+.new-receipt-btn:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:0 6px 16px rgba(25,135,84,.35);
+
+    background:#157347;
+
+    color:#fff;
+
+}
+
+.print-btn:hover{
+
+    opacity:.9;
+}
+
+@media print{
+
+    body{
+
+        background:#fff;
+    }
+
+    .receipt{
+
+        width:180mm;
+
+        margin:auto;
+
+        padding:10mm;
+
+        box-shadow:none;
+
+        border:1px solid #000;
+    }
+
+    .print-btn{
+
+        display:none;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="receipt">
+
+    <!-- ========================= -->
+    <!-- HEADER -->
+    <!-- ========================= -->
+
+    <div class="heading">
+
+        <div class="reg">
+
+            पंजीयन क्रमांक (AR/IDR/860/Dt. 11-09-1987)
+
+        </div>
+
+        <div class="title">
+
+            तकनीकी कर्मचारी सहकारी साख संस्था मर्यादित इंदौर
+
+        </div>
+
+        <div class="address">
+
+            38, वेयर हाउस रोड इंदौर (म.प्र.)<br>
+
+            फ़ोन : 0731-2997495, 2447495
+
+        </div>
+
+        <div class="receipt-title">
+
+            MULTI RECEIPT
+
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- RECEIPT INFO -->
+    <!-- ========================= -->
+
+    <div class="top">
+
+        <div>
+
+            <span class="label">
+
+                Receipt No :
+
+            </span>
+
+            {{ receipt_no }}
+
+        </div>
+
+        <div>
+
+            <span class="label">
+
+                Voucher No :
+
+            </span>
+
+            {{ voucher }}
+
+        </div>
+
+    </div>
+
+    <div class="top">
+
+        <div>
+
+            <span class="label">
+
+                Member No :
+
+            </span>
+
+            {{ member_no }}
+
+        </div>
+
+        <div>
+
+            <span class="label">
+
+                Date :
+
+            </span>
+
+            {{ created_on }}
+
+        </div>
+
+    </div>
+
+    <div class="info-box">
+
+        <span class="label">
+
+            Member Name :
+
+        </span>
+
+        {{ member_name }}
+
+    </div>
+
+    <div class="info-box">
+
+        <span class="label">
+
+            Remark :
+
+        </span>
+
+        {{ remark }}
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- TABLE -->
+    <!-- ========================= -->
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th width="40%">
+                    Head
+                </th>
+
+                <th width="30%">
+                    Account / Loan
+                </th>
+
+                <th width="30%">
+                    Amount
+                </th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for row in entries %}
+
+            <tr>
+
+                <td>
+                    {{ row.head }}
+                </td>
+
+                <td>
+                    {{ row.account_no }}
+                </td>
+
+                <td class="amount">
+                    ₹ {{ "%.2f"|format(row.amount) }}
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    <!-- ========================= -->
+    <!-- TOTAL -->
+    <!-- ========================= -->
+
+    <div class="total">
+
+        TOTAL :
+        ₹ {{ "%.2f"|format(total_amount) }}
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- SIGNATURE -->
+    <!-- ========================= -->
+
+    <div class="sign">
+
+        <div>
+
+            Member Signature
+
+        </div>
+
+        <div>
+
+            Authorized Signature
+
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- PRINT BUTTON -->
+    <!-- ========================= -->
+
+    <button
+    class="print-btn"
+    onclick="window.print()">
+
+        🖨 Print Receipt
+
+    </button>
+	<a href="{{ url_for('multi_receipt') }}"
+   class="new-receipt-btn">
+   ➕ New Receipt
+</a>
+
+</div>
+
+</body>
+
+</html>

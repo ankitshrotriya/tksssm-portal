@@ -1,0 +1,890 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+
+.receipt-box{
+    background:#fff;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,.08);
+}
+
+.top-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+}
+
+.form-group label{
+    font-weight:600;
+    margin-bottom:5px;
+}
+
+.form-control{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+
+.receipt-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.receipt-table th,
+.receipt-table td{
+    border:1px solid #ccc;
+    padding:8px;
+}
+
+.receipt-table th{
+    background:#f5f5f5;
+}
+
+.add-btn{
+    margin-top:10px;
+    background:#198754;
+    color:#fff;
+    border:none;
+    padding:8px 15px;
+    border-radius:6px;
+}
+
+.remove-btn{
+    background:#dc3545;
+    color:#fff;
+    border:none;
+    padding:5px 10px;
+    border-radius:5px;
+}
+
+.total-box{
+    margin-top:20px;
+    text-align:right;
+    font-size:22px;
+    font-weight:700;
+}
+
+.submit-btn{
+    margin-top:20px;
+    background:#0d6efd;
+    color:#fff;
+    border:none;
+    padding:12px 20px;
+    border-radius:8px;
+}
+
+.search-box{
+    position:absolute;
+    background:#fff;
+    width:100%;
+    border:1px solid #ddd;
+    max-height:200px;
+    overflow:auto;
+    z-index:999;
+}
+
+.search-item{
+    padding:10px;
+    cursor:pointer;
+}
+
+.search-item:hover{
+    background:#f5f5f5;
+}
+
+</style>
+
+<div class="receipt-box">
+
+<h3>
+🧾 Multi Receipt Entry
+</h3>
+
+<form method="POST">
+
+<div class="top-grid">
+
+<div class="form-group">
+
+<label>
+Receipt No
+</label>
+
+<input type="text"
+       name="receipt_no"
+       class="form-control"
+       required>
+
+</div>
+
+<div class="form-group">
+
+<label>
+Date
+</label>
+
+<input type="date"
+       name="receipt_date"
+       class="form-control"
+       value="{{ today }}">
+
+</div>
+
+<div class="form-group"
+     style="position:relative;">
+
+<label>
+Member
+</label>
+
+<input type="text"
+       id="memberSearch"
+       class="form-control"
+       autocomplete="off">
+
+<input type="hidden"
+       name="member_no"
+       id="member_no">
+
+<div id="memberDropdown"
+     class="search-box"
+     style="display:none;">
+</div>
+
+</div>
+
+<div class="form-group">
+
+<label>
+Pay Mode
+</label>
+
+<select name="pay_mode"
+        id="pay_mode"
+        class="form-control">
+
+<option value="Cash">
+Cash
+</option>
+
+<option value="Cheque">
+Cheque
+</option>
+
+<option value="UPI">
+UPI
+</option>
+
+</select>
+
+</div>
+
+<div class="form-group"
+     id="chequeBox"
+     style="display:none;">
+
+<label>
+Cheque No
+</label>
+
+<input type="text"
+       name="cheque_no"
+       class="form-control">
+
+</div>
+<!--
+<div class="form-group">
+
+<label>
+Bank
+</label>
+
+<input type="text"
+       name="bank_name"
+       class="form-control">
+
+</div>-->
+
+</div>
+
+<table class="receipt-table">
+
+<thead>
+
+<tr>
+
+<th>
+Head
+</th>
+
+<th>
+Type
+</th>
+
+<th>
+Account/Loan
+</th>
+
+<th>
+Previous Balance
+</th>
+
+<th>
+Amount
+</th>
+
+<th>
+New Balance
+</th>
+
+<th>
+X
+</th>
+
+</tr>
+
+</thead>
+
+<tbody id="receiptBody">
+
+</tbody>
+
+</table>
+
+<button type="button"
+        class="add-btn"
+        onclick="addRow()">
+
++ Add Row
+
+</button>
+
+<div class="total-box">
+
+Total :
+₹ <span id="totalAmount">
+0.00
+</span>
+
+</div>
+
+<button class="submit-btn">
+
+💾 Save Receipt
+
+</button>
+
+</form>
+
+</div>
+
+<script>
+
+let allMembers = [];
+let allHeads = [];
+let currentMember = null;
+
+// ====================================
+// MEMBERS
+// ====================================
+
+fetch("/get_active_members")
+
+.then(res => res.json())
+
+.then(data => {
+
+    allMembers = data;
+
+});
+
+// ====================================
+// HEADS
+// ====================================
+
+fetch("/get_all_heads")
+
+.then(res => res.json())
+
+.then(data => {
+
+    allHeads = data;
+
+});
+
+// ====================================
+// MEMBER SEARCH
+// ====================================
+
+const memberSearch =
+    document.getElementById("memberSearch");
+
+const memberDropdown =
+    document.getElementById("memberDropdown");
+
+memberSearch.addEventListener("input", function(){
+
+    let value =
+        this.value.toLowerCase();
+
+    memberDropdown.innerHTML = "";
+
+    if(value.length < 1){
+
+        memberDropdown.style.display = "none";
+
+        return;
+    }
+
+    let filtered =
+        allMembers.filter(m => {
+
+        return (
+
+            m.member_name_eng
+            .toLowerCase()
+            .includes(value)
+
+            ||
+
+            String(m.member_no)
+            .includes(value)
+
+        );
+
+    });
+
+    filtered.forEach(m => {
+
+        let div =
+            document.createElement("div");
+
+        div.className =
+            "search-item";
+
+        div.innerHTML =
+            `${m.member_no} - ${m.member_name_eng}`;
+
+        div.onclick = function(){
+
+            memberSearch.value =
+                `${m.member_no} - ${m.member_name_eng}`;
+
+            document
+            .getElementById("member_no")
+            .value = m.member_no;
+
+            currentMember =
+                m.member_no;
+
+            memberDropdown.style.display =
+                "none";
+
+        };
+
+        memberDropdown.appendChild(div);
+
+    });
+
+    memberDropdown.style.display =
+        "block";
+
+});
+
+// ====================================
+// PAY MODE
+// ====================================
+
+document
+.getElementById("pay_mode")
+.addEventListener("change", function(){
+
+    document
+    .getElementById("chequeBox")
+    .style.display =
+
+        this.value === "Cheque"
+        ? "block"
+        : "none";
+
+});
+
+// ====================================
+// ADD ROW
+// ====================================
+
+function addRow(){
+
+    let tr =
+        document.createElement("tr");
+
+    tr.innerHTML = `
+
+        <td style="position:relative;">
+
+            <input type="text"
+                   class="form-control head-search"
+                   autocomplete="off">
+
+            <input type="hidden"
+                   name="head_id[]"
+                   class="head-id">
+
+            <div class="search-box"
+                 style="display:none;">
+            </div>
+
+        </td>
+
+        <td>
+
+            <input type="text"
+                   class="form-control head-type"
+                   readonly>
+
+        </td>
+
+        <td>
+
+			<select
+				class="form-control account-loan"
+				name="loan_no[]">
+			</select>
+
+		</td>
+
+        <td>
+
+            <input type="text"
+                   class="form-control prev-bal"
+                   readonly>
+
+        </td>
+
+        <td>
+
+            <input type="number"
+                   name="amount[]"
+                   step="0.01"
+                   min="0"
+                   class="form-control amt">
+
+        </td>
+
+        <td>
+
+            <input type="text"
+                   class="form-control new-bal"
+                   readonly>
+
+        </td>
+
+        <td>
+
+            <button type="button"
+                    class="remove-btn"
+                    onclick="removeRow(this)">
+                X
+            </button>
+
+        </td>
+
+    `;
+
+    document
+    .getElementById("receiptBody")
+    .appendChild(tr);
+
+    bindHeadSearch(tr);
+
+    bindAmount(tr);
+
+}
+
+// ====================================
+// REMOVE
+// ====================================
+
+function removeRow(btn){
+
+    btn.closest("tr").remove();
+
+    calculateTotal();
+
+}
+
+// ====================================
+// SEARCH HEAD
+// ====================================
+
+function bindHeadSearch(row){
+
+    const input =
+        row.querySelector(".head-search");
+
+    const hidden =
+        row.querySelector(".head-id");
+
+    const searchBox =
+        row.querySelector(".search-box");
+
+    input.addEventListener("input", function(){
+
+        let value =
+            this.value.toLowerCase();
+
+        searchBox.innerHTML = "";
+
+        let filtered =
+            allHeads.filter(h => {
+
+            return h.head_name
+            .toLowerCase()
+            .includes(value);
+
+        });
+
+        filtered.forEach(h => {
+
+            let div =
+                document.createElement("div");
+
+            div.className =
+                "search-item";
+
+            div.innerHTML =
+                h.head_name;
+
+            div.onclick = function(){
+
+                input.value =
+                    h.head_name;
+
+                hidden.value =
+                    h.id;
+
+                row.querySelector(".head-type")
+                .value = h.head_type;
+
+                searchBox.style.display =
+                    "none";
+
+                fetchHeadDetails(
+                    row,
+                    h.id
+                );
+
+            };
+
+            searchBox.appendChild(div);
+
+        });
+
+        searchBox.style.display =
+            "block";
+
+    });
+
+}
+
+// ====================================
+// FETCH HEAD DETAILS
+// ====================================
+
+function fetchHeadDetails(row, head_id){
+
+    fetch(`/get_head_details/${currentMember}/${head_id}`)
+    .then(res => res.json())
+    .then(data => {
+
+        let accountLoan =
+            row.querySelector(".account-loan");
+
+        accountLoan.innerHTML = "";
+
+        // ==========================
+        // MULTIPLE LOANS
+        // ==========================
+        if(data.loan_list){
+
+            data.loan_list.forEach(l => {
+
+                let option =
+                    document.createElement("option");
+
+                option.value =
+                    l.loan_no;
+
+                option.text =
+                    l.loan_no;
+
+                option.dataset.balance =
+                    l.balance;
+
+                accountLoan.appendChild(option);
+
+            });
+
+            if(data.loan_list.length > 0){
+
+                row.querySelector(".prev-bal")
+                .value =
+                    data.loan_list[0].balance;
+
+            }
+
+            accountLoan.onchange = function(){
+
+                let balance =
+                    this.options[
+                        this.selectedIndex
+                    ].dataset.balance;
+
+                row.querySelector(".prev-bal")
+                .value = balance;
+
+            };
+
+        }
+		
+		else if(data.rd_list){
+
+			data.rd_list.forEach(r => {
+
+				let option =
+					document.createElement("option");
+
+				option.value =
+					r.rd_account_no;
+
+				option.text =
+					r.rd_account_no +
+					" (₹" +
+					r.monthly_deposit +
+					"/Month)";
+
+				option.dataset.balance =
+					r.balance;
+				option.dataset.monthlydeposit =
+					r.monthly_deposit;
+
+				accountLoan.appendChild(option);
+
+			});
+
+			if(data.rd_list.length > 0){
+
+				row.querySelector(".prev-bal")
+				.value =
+					data.rd_list[0].balance;
+
+				let amtInput =
+					row.querySelector(".amt");
+
+				amtInput.dataset.maxamount =
+					data.rd_list[0].monthly_deposit;
+
+				// Auto fill EMI
+				amtInput.value =
+					data.rd_list[0].monthly_deposit;
+
+				// Lock field
+				amtInput.readOnly = true;
+
+				// New Balance calculate
+				row.querySelector(".new-bal").value =
+					(
+						parseFloat(data.rd_list[0].balance || 0)
+						+
+						parseFloat(data.rd_list[0].monthly_deposit || 0)
+					).toFixed(2);
+
+				calculateTotal();
+			}
+
+			accountLoan.onchange = function(){
+
+				let balance =
+					this.options[
+						this.selectedIndex
+					].dataset.balance;
+
+				row.querySelector(".prev-bal")
+				.value = balance;
+				row.querySelector(".amt")
+				.dataset.maxamount =
+					this.options[
+						this.selectedIndex
+					].dataset.monthlydeposit;
+				let emi =
+					parseFloat(
+						this.options[
+							this.selectedIndex
+						].dataset.monthlydeposit || 0
+					);
+
+				let amtInput =
+					row.querySelector(".amt");
+
+				amtInput.dataset.maxamount = emi;
+				amtInput.value = emi;
+				amtInput.readOnly = true;
+
+				row.querySelector(".new-bal").value =
+					(
+						parseFloat(balance || 0)
+						+
+						emi
+					).toFixed(2);
+
+				calculateTotal();
+
+			};
+			
+
+		}
+
+        // ==========================
+        // ACCOUNT / OTHER
+        // ==========================
+        else{
+
+            let option =
+                document.createElement("option");
+
+            option.value =
+                data.account_no;
+
+            option.text =
+                data.account_no;
+
+            accountLoan.appendChild(option);
+
+            row.querySelector(".prev-bal")
+            .value =
+                data.balance;
+
+        }
+
+    });
+
+}
+
+// ====================================
+// AMOUNT
+// ====================================
+
+function bindAmount(row){
+
+    row.querySelector(".amt")
+    .addEventListener("input", function(){
+
+        let prev =
+            parseFloat(
+                row.querySelector(".prev-bal")
+                .value || 0
+            );
+
+        let amount =
+            parseFloat(
+                this.value || 0
+            );
+
+        let type =
+            row.querySelector(".head-type")
+            .value;
+
+        // ==========================
+        // RECURRING VALIDATION
+        // ==========================
+
+        /*if(type === "RD"){
+
+            let maxAmount =
+                parseFloat(
+                    this.dataset.maxamount || 0
+                );
+
+            if(
+				maxAmount > 0 &&
+				amount !== maxAmount
+			){
+				alert(
+					"RD me sirf ₹" +
+					maxAmount +
+					" ka exact monthly deposit hi allowed hai"
+				);
+
+				this.value = maxAmount;
+
+				amount = maxAmount;
+			}
+        }*/
+
+        // ==========================
+        // CALCULATE NEW BALANCE
+        // ==========================
+
+        let newBal = 0;
+
+        if(type === "Loan"){
+
+            newBal =
+                prev - amount;
+
+        }else{
+
+            newBal =
+                prev + amount;
+
+        }
+
+        row.querySelector(".new-bal")
+        .value =
+            newBal.toFixed(2);
+
+        calculateTotal();
+
+    });
+
+}
+
+// ====================================
+// TOTAL
+// ====================================
+
+function calculateTotal(){
+
+    let total = 0;
+
+    document
+    .querySelectorAll(".amt")
+    .forEach(i => {
+
+        total +=
+            parseFloat(i.value || 0);
+
+    });
+
+    document
+    .getElementById("totalAmount")
+    .innerText =
+        total.toFixed(2);
+
+}
+
+addRow();
+
+</script>
+<script src="https://unpkg.com/sanscript@1.2.0/dist/sanscript.min.js"></script>
+
+{% endblock %}

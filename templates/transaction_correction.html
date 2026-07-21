@@ -1,0 +1,2044 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Transaction Data Correction</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+
+<style>
+
+body{
+    background:#eef2f7;
+    font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;
+}
+
+/* ===========================
+   HEADER
+=========================== */
+
+.page-header{
+
+    background:linear-gradient(135deg,#0d6efd,#003b8e);
+
+    color:white;
+
+    padding:25px;
+
+    border-radius:15px;
+
+    box-shadow:0 5px 18px rgba(0,0,0,.15);
+
+    margin-bottom:25px;
+
+}
+
+.page-header h2{
+
+    margin:0;
+
+    font-weight:700;
+
+}
+
+.page-header p{
+
+    margin-top:8px;
+
+    margin-bottom:0;
+
+    opacity:.9;
+
+}
+
+
+/* ===========================
+   SEARCH CARD
+=========================== */
+
+.search-card{
+
+    background:white;
+
+    border-radius:15px;
+
+    padding:20px;
+
+    box-shadow:0 3px 12px rgba(0,0,0,.08);
+
+    margin-bottom:25px;
+
+}
+
+
+/* ===========================
+   STATS CARD
+=========================== */
+
+.stat-card{
+
+    border-radius:12px;
+
+    color:white;
+
+    padding:20px;
+
+    transition:.3s;
+
+    cursor:pointer;
+
+    margin-bottom:20px;
+
+}
+
+.stat-card:hover{
+
+    transform:translateY(-4px);
+
+}
+
+.stat-card i{
+
+    font-size:32px;
+
+    margin-bottom:10px;
+
+}
+
+.stat-card h3{
+
+    margin:0;
+
+    font-size:30px;
+
+    font-weight:bold;
+
+}
+
+.stat-card p{
+
+    margin:0;
+
+}
+
+.bg-blue{
+
+    background:#0d6efd;
+
+}
+
+.bg-green{
+
+    background:#198754;
+
+}
+
+.bg-orange{
+
+    background:#fd7e14;
+
+}
+
+.bg-red{
+
+    background:#dc3545;
+
+}
+
+
+/* ===========================
+   SECTION CARD
+=========================== */
+
+.section-card{
+
+    background:white;
+
+    border-radius:15px;
+
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+
+    margin-bottom:25px;
+
+    overflow:hidden;
+
+}
+
+
+/* ===========================
+   SECTION HEADER
+=========================== */
+
+.section-header{
+
+    background:#0d6efd;
+
+    color:white;
+
+    padding:15px 20px;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    cursor:pointer;
+
+}
+
+.section-header h5{
+
+    margin:0;
+
+    font-weight:600;
+
+}
+
+
+/* ===========================
+   TABLE
+=========================== */
+
+.table-responsive{
+
+    max-height:600px;
+
+    overflow:auto;
+
+}
+
+.table{
+
+    margin-bottom:0;
+
+}
+
+.table thead{
+
+    position:sticky;
+
+    top:0;
+
+    z-index:10;
+
+}
+
+.table thead th{
+
+    background:#003b8e;
+
+    color:white;
+
+    text-align:center;
+
+    vertical-align:middle;
+
+    white-space:nowrap;
+
+}
+
+.table td{
+
+    vertical-align:middle;
+
+    white-space:nowrap;
+
+}
+
+.table tbody tr:hover{
+
+    background:#edf5ff;
+
+}
+
+
+/* ===========================
+   INPUT
+=========================== */
+
+.table input,
+
+.table select{
+
+    min-width:120px;
+
+}
+
+
+/* ===========================
+   SAVE BUTTON
+=========================== */
+
+.btn-save{
+
+    background:#198754;
+
+    color:white;
+
+    border:none;
+
+}
+
+.btn-save:hover{
+
+    background:#157347;
+
+}
+
+
+/* ===========================
+   LOADER
+=========================== */
+
+.loader{
+
+    display:none;
+
+    text-align:center;
+
+    padding:40px;
+
+}
+
+
+/* ===========================
+   RECORD BADGE
+=========================== */
+
+.badge-record{
+
+    font-size:14px;
+
+    background:white;
+
+    color:#0d6efd;
+
+}
+
+
+/* ===========================
+   COLLAPSE ICON
+=========================== */
+
+.rotate{
+
+    transition:.3s;
+
+}
+
+.rotate.down{
+
+    transform:rotate(180deg);
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container-fluid mt-4">
+
+<!-- ===========================
+HEADER
+=========================== -->
+
+<div class="page-header">
+
+<h2>
+
+<i class="fa-solid fa-pen-to-square"></i>
+
+Transaction Data Correction Panel
+
+</h2>
+
+<p>
+
+Search transactions by date and update records directly.
+
+Only the selected table will be updated.
+
+</p>
+
+</div>
+<!-- ===========================
+SEARCH PANEL
+=========================== -->
+
+<div class="search-card">
+
+    <div class="row align-items-end">
+
+        <div class="col-lg-3 col-md-4">
+
+            <label class="form-label fw-bold">
+
+                <i class="fa-solid fa-calendar-days text-primary"></i>
+
+                Transaction Date
+
+            </label>
+
+            <input
+                type="date"
+                id="search_date"
+                class="form-control"
+                value="{{ now.date() }}"
+            >
+
+        </div>
+
+        <div class="col-lg-2 col-md-3">
+
+            <button
+                class="btn btn-primary w-100"
+                id="btnSearch">
+
+                <i class="fa-solid fa-magnifying-glass"></i>
+
+                Search
+
+            </button>
+
+        </div>
+
+        <div class="col-lg-2 col-md-3">
+
+            <button
+                class="btn btn-success w-100"
+                onclick="location.reload()">
+
+                <i class="fa-solid fa-rotate"></i>
+
+                Refresh
+
+            </button>
+
+        </div>
+
+        <div class="col-lg-5">
+
+            <div class="alert alert-info mb-0">
+
+                <i class="fa-solid fa-circle-info"></i>
+
+                Select a transaction date and click
+                <b>Search</b>.
+
+                You can edit any record after loading.
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===========================
+STATISTICS
+=========================== -->
+
+<div class="row">
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="stat-card bg-blue">
+
+            <i class="fa-solid fa-money-bill-transfer"></i>
+
+            <h3 id="total_transactions">
+
+                0
+
+            </h3>
+
+            <p>
+
+                Transactions
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="stat-card bg-green">
+
+            <i class="fa-solid fa-building-columns"></i>
+
+            <h3 id="total_loan_transactions">
+
+                0
+
+            </h3>
+
+            <p>
+
+                Loan Transactions
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="stat-card bg-orange">
+
+            <i class="fa-solid fa-building"></i>
+
+            <h3 id="total_bank_transactions">
+
+                0
+
+            </h3>
+
+            <p>
+
+                Bank Transactions
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-3 col-md-6">
+
+        <div class="stat-card bg-red">
+
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+
+            <h3 id="total_loans">
+
+                0
+
+            </h3>
+
+            <p>
+
+                Loan Master
+
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===========================
+LOADER
+=========================== -->
+
+<div
+    id="loader"
+    class="loader">
+
+    <div class="spinner-border text-primary">
+
+    </div>
+
+    <br><br>
+
+    <h5>
+
+        Loading Records...
+
+    </h5>
+
+</div>
+<!-- =========================================================
+TRANSACTIONS SECTION
+========================================================= -->
+
+<div class="section-card">
+
+    <div class="section-header"
+         data-bs-toggle="collapse"
+         data-bs-target="#transactions_section">
+
+        <div>
+
+            <h5>
+
+                <i class="fa-solid fa-money-bill-transfer"></i>
+
+                Transactions
+
+                <span
+                    class="badge badge-record ms-2"
+                    id="transactions_count">
+
+                    0
+
+                </span>
+
+            </h5>
+
+        </div>
+
+        <div>
+
+            <i class="fa-solid fa-chevron-down rotate"></i>
+
+        </div>
+
+    </div>
+
+
+
+    <div
+        class="collapse show"
+        id="transactions_section">
+
+
+        <div class="table-responsive">
+
+
+            <table
+                class="table table-bordered table-striped table-hover align-middle">
+
+
+                <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Member</th>
+
+                    <th>Account</th>
+
+                    <th>Type</th>
+
+                    <th>Amount</th>
+
+                    <th>Date</th>
+
+                    <th>Remark</th>
+
+                    <th>Source</th>
+
+                    <th>Voucher</th>
+
+                    <th>Bank</th>
+
+                    <th>Bank ID</th>
+
+                    <th>Cheque</th>
+
+                    <th>DD No</th>
+
+                    <th>Issue Date</th>
+
+                    <th>GL Head</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+                </thead>
+
+
+
+                <tbody
+                    id="transactions_body">
+
+
+                    <!-- Dynamic Rows -->
+
+
+                </tbody>
+
+            </table>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+
+<!-- =========================================================
+TRANSACTION ROW TEMPLATE
+(JavaScript will create same row)
+========================================================= -->
+
+<script>
+
+function buildTransactionRow(r){
+
+return `
+
+<tr>
+
+<td>
+
+<input
+class="form-control"
+value="${r.id}"
+readonly>
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control"
+value="${r.member_no}"
+readonly>
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control"
+value="${r.account_no}"
+readonly>
+
+</td>
+
+
+
+<td>
+
+<select
+class="form-select trans_type">
+
+<option
+${r.trans_type=="Credit"?"selected":""}>
+
+Credit
+
+</option>
+
+<option
+${r.trans_type=="Debit"?"selected":""}>
+
+Debit
+
+</option>
+
+</select>
+
+</td>
+
+
+
+<td>
+
+<input
+type="number"
+step="0.01"
+class="form-control amount"
+value="${r.amount}">
+
+</td>
+
+
+
+<td>
+
+<input
+type="date"
+class="form-control trans_date"
+value="${r.trans_date}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control remark"
+value="${r.remark||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control source"
+value="${r.source||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control voucher_no"
+value="${r.voucher_no||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control bank_name"
+value="${r.bank_name||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control bank_id"
+value="${r.bank_id||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control cheque_no"
+value="${r.cheque_no||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control dd_no"
+value="${r.dd_no||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+type="date"
+class="form-control issue_date"
+value="${r.issue_date||""}">
+
+</td>
+
+
+
+<td>
+
+<input
+class="form-control gl_head"
+value="${r.gl_head||""}">
+
+</td>
+
+
+
+<td
+style="min-width:130px;">
+
+<button
+class="btn btn-success btn-save"
+
+data-id="${r.id}">
+
+<i class="fa-solid fa-floppy-disk"></i>
+
+Save
+
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+}
+
+</script>
+<!-- =========================================================
+LOAN TRANSACTIONS SECTION
+========================================================= -->
+
+<div class="section-card mt-4">
+
+    <div class="section-header"
+         data-bs-toggle="collapse"
+         data-bs-target="#loan_transactions_section">
+
+        <div>
+
+            <h5>
+
+                <i class="fa-solid fa-building-columns"></i>
+
+                Loan Transactions
+
+                <span
+                    class="badge badge-record ms-2"
+                    id="loan_transactions_count">
+
+                    0
+
+                </span>
+
+            </h5>
+
+        </div>
+
+        <div>
+
+            <i class="fa-solid fa-chevron-down rotate"></i>
+
+        </div>
+
+    </div>
+
+
+
+    <div
+        class="collapse show"
+        id="loan_transactions_section">
+
+
+        <div class="table-responsive">
+
+
+            <table
+                class="table table-bordered table-striped table-hover align-middle">
+
+
+                <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Loan No</th>
+
+                    <th>Member</th>
+
+                    <th>Account No</th>
+
+                    <th>Account Type</th>
+
+                    <th>Type</th>
+
+                    <th>Amount</th>
+
+                    <th>Date</th>
+
+                    <th>Remark</th>
+
+                    <th>GL Head</th>
+
+                    <th>Voucher</th>
+
+                    <th>Bank</th>
+
+                    <th>Bank ID</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+                </thead>
+
+
+
+                <tbody
+                    id="loan_transactions_body">
+
+
+                </tbody>
+
+            </table>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+function buildLoanTransactionRow(r){
+
+return `
+
+<tr>
+
+<td>
+
+<input
+class="form-control"
+value="${r.id}"
+readonly>
+
+</td>
+
+<td>
+
+<input
+class="form-control"
+value="${r.loan_no}"
+readonly>
+
+</td>
+
+<td>
+
+<input
+class="form-control"
+value="${r.member_no}"
+readonly>
+
+</td>
+
+<td>
+
+<input
+class="form-control account_no"
+value="${r.account_no||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control account_type"
+value="${r.account_type||''}">
+
+</td>
+
+<td>
+
+<select class="form-select trans_type">
+
+<option ${r.trans_type=="Credit"?"selected":""}>Credit</option>
+
+<option ${r.trans_type=="Debit"?"selected":""}>Debit</option>
+
+</select>
+
+</td>
+
+<td>
+
+<input
+type="number"
+step="0.01"
+class="form-control amount"
+value="${r.amount}">
+
+</td>
+
+<td>
+
+<input
+type="date"
+class="form-control trans_date"
+value="${r.trans_date}">
+
+</td>
+
+<td>
+
+<input
+class="form-control remark"
+value="${r.remark||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control gl_head"
+value="${r.gl_head||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control voucher_no"
+value="${r.voucher_no||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control bank_name"
+value="${r.bank_name||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control bank_id"
+value="${r.bank_id||''}">
+
+</td>
+
+<td>
+
+<button
+class="btn btn-success btn-save loan-save"
+
+data-id="${r.id}">
+
+<i class="fa-solid fa-floppy-disk"></i>
+
+Save
+
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+}
+
+</script>
+<!-- =========================================================
+BANK TRANSACTIONS SECTION
+========================================================= -->
+
+<div class="section-card mt-4">
+
+    <div class="section-header"
+         data-bs-toggle="collapse"
+         data-bs-target="#bank_transactions_section">
+
+        <div>
+
+            <h5>
+
+                <i class="fa-solid fa-building"></i>
+
+                Bank Transactions
+
+                <span
+                    class="badge badge-record ms-2"
+                    id="bank_transactions_count">
+
+                    0
+
+                </span>
+
+            </h5>
+
+        </div>
+
+        <div>
+
+            <i class="fa-solid fa-chevron-down rotate"></i>
+
+        </div>
+
+    </div>
+
+
+
+    <div
+        class="collapse show"
+        id="bank_transactions_section">
+
+        <div class="table-responsive">
+
+            <table
+                class="table table-bordered table-striped table-hover align-middle">
+
+                <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Loan No</th>
+
+                    <th>Member</th>
+
+                    <th>Bank</th>
+
+                    <th>Type</th>
+
+                    <th>Amount</th>
+
+                    <th>Date</th>
+
+                    <th>Remark</th>
+
+                    <th>Voucher</th>
+
+                    <th>Bank ID</th>
+
+                    <th>Created By</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+                </thead>
+
+                <tbody id="bank_transactions_body">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+function buildBankTransactionRow(r){
+
+return `
+
+<tr>
+
+<td>
+<input
+class="form-control"
+value="${r.id}"
+readonly>
+</td>
+
+<td>
+<input
+class="form-control"
+value="${r.loan_no||''}">
+</td>
+
+<td>
+<input
+class="form-control"
+value="${r.member_no||''}">
+</td>
+
+<td>
+<input
+class="form-control bank_name"
+value="${r.bank_name||''}">
+</td>
+
+<td>
+
+<select class="form-select trans_type">
+
+<option ${r.trans_type=="Credit"?"selected":""}>Credit</option>
+
+<option ${r.trans_type=="Debit"?"selected":""}>Debit</option>
+
+</select>
+
+</td>
+
+<td>
+
+<input
+type="number"
+step="0.01"
+class="form-control amount"
+value="${r.amount}">
+
+</td>
+
+<td>
+
+<input
+type="datetime-local"
+class="form-control trans_date"
+value="${r.trans_date}">
+
+</td>
+
+<td>
+
+<input
+class="form-control remark"
+value="${r.remark||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control voucher_no"
+value="${r.voucher_no||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control bank_id"
+value="${r.bank_id||''}">
+
+</td>
+
+<td>
+
+<input
+class="form-control created_by"
+value="${r.created_by||''}">
+
+</td>
+
+<td>
+
+<button
+class="btn btn-success btn-save bank-save"
+data-id="${r.id}">
+
+<i class="fa-solid fa-floppy-disk"></i>
+
+Save
+
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+}
+
+</script>
+<!-- =========================================================
+LOAN MASTER SECTION
+========================================================= -->
+
+<div class="section-card mt-4">
+
+    <div class="section-header"
+         data-bs-toggle="collapse"
+         data-bs-target="#loan_master_section">
+
+        <div>
+
+            <h5>
+
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+
+                Loan Master
+
+                <span
+                    class="badge badge-record ms-2"
+                    id="loan_master_count">
+
+                    0
+
+                </span>
+
+            </h5>
+
+        </div>
+
+        <div>
+
+            <i class="fa-solid fa-chevron-down rotate"></i>
+
+        </div>
+
+    </div>
+
+
+
+    <div
+        class="collapse show"
+        id="loan_master_section">
+
+        <div class="table-responsive">
+
+            <table
+                class="table table-bordered table-striped table-hover align-middle">
+
+                <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Loan No</th>
+
+                    <th>Member</th>
+
+                    <th>Member Name</th>
+
+                    <th>Loan Head</th>
+
+                    <th>Principal</th>
+
+                    <th>Interest</th>
+
+                    <th>Tenure</th>
+
+                    <th>EMI</th>
+
+                    <th>Outstanding</th>
+
+                    <th>Status</th>
+
+                    <th>Disbursed Date</th>
+
+                    <th>Created On</th>
+
+                    <th>Voucher</th>
+
+                    <th>Bank</th>
+
+                    <th>Bank ID</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+                </thead>
+
+                <tbody id="loan_master_body">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+function buildLoanMasterRow(r){
+
+return `
+
+<tr>
+
+<td>
+<input class="form-control" value="${r.id}" readonly>
+</td>
+
+<td>
+<input class="form-control" value="${r.loan_no}" readonly>
+</td>
+
+<td>
+<input class="form-control" value="${r.member_no}" readonly>
+</td>
+
+<td>
+<input class="form-control member_name" value="${r.member_name||''}">
+</td>
+
+<td>
+<input class="form-control loan_head" value="${r.loan_head||''}">
+</td>
+
+<td>
+<input type="number"
+step="0.01"
+class="form-control principal"
+value="${r.principal}">
+</td>
+
+<td>
+<input type="number"
+step="0.01"
+class="form-control interest_rate"
+value="${r.interest_rate}">
+</td>
+
+<td>
+<input type="number"
+class="form-control tenure"
+value="${r.tenure_months}">
+</td>
+
+<td>
+<input type="number"
+step="0.01"
+class="form-control emi"
+value="${r.emi}">
+</td>
+
+<td>
+<input type="number"
+step="0.01"
+class="form-control outstanding"
+value="${r.outstanding_principal}">
+</td>
+
+<td>
+
+<select class="form-select status">
+
+<option ${r.status=="Active"?"selected":""}>Active</option>
+
+<option ${r.status=="Pending"?"selected":""}>Pending</option>
+
+<option ${r.status=="Closed"?"selected":""}>Closed</option>
+
+</select>
+
+</td>
+
+<td>
+<input
+type="datetime-local"
+class="form-control disbursed_date"
+value="${r.disbursed_date||''}">
+</td>
+
+<td>
+<input
+type="datetime-local"
+class="form-control created_on"
+value="${r.created_on||''}">
+</td>
+
+<td>
+<input
+class="form-control voucher_no"
+value="${r.voucher_no||''}">
+</td>
+
+<td>
+<input
+class="form-control bank_name"
+value="${r.bank_name||''}">
+</td>
+
+<td>
+<input
+class="form-control bank_id"
+value="${r.bank_id||''}">
+</td>
+
+<td>
+
+<button
+class="btn btn-success btn-save loan-master-save"
+data-id="${r.id}">
+
+<i class="fa-solid fa-floppy-disk"></i>
+
+Save
+
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+}
+
+</script>
+<script>
+
+const btnSearch = document.getElementById("btnSearch");
+
+btnSearch.addEventListener("click", loadTransactions);
+
+
+async function loadTransactions(){
+
+    let dt=document.getElementById("search_date").value;
+
+    if(dt==""){
+
+        alert("Please Select Date");
+
+        return;
+
+    }
+
+    document.getElementById("loader").style.display="block";
+
+
+
+    let response=await fetch("/transaction_correction/search",{
+
+        method:"POST",
+
+        headers:{
+
+            "Content-Type":"application/json"
+
+        },
+
+        body:JSON.stringify({
+
+            trans_date:dt
+
+        })
+
+    });
+
+
+
+    let data=await response.json();
+
+
+
+    document.getElementById("loader").style.display="none";
+
+
+
+    loadTransactionTable(data.transactions);
+
+    loadLoanTransactionTable(data.loan_transactions);
+
+    loadBankTransactionTable(data.bank_transactions);
+
+    loadLoanMasterTable(data.loans);
+
+
+
+}
+
+
+
+
+
+
+
+function loadTransactionTable(rows){
+
+    let body=document.getElementById("transactions_body");
+
+    body.innerHTML="";
+
+
+
+    document.getElementById("transactions_count").innerHTML=rows.length;
+
+    document.getElementById("total_transactions").innerHTML=rows.length;
+
+
+
+    rows.forEach(r=>{
+
+        body.innerHTML+=buildTransactionRow(r);
+
+    });
+
+}
+
+
+
+
+
+
+
+function loadLoanTransactionTable(rows){
+
+    let body=document.getElementById("loan_transactions_body");
+
+    body.innerHTML="";
+
+
+
+    document.getElementById("loan_transactions_count").innerHTML=rows.length;
+
+    document.getElementById("total_loan_transactions").innerHTML=rows.length;
+
+
+
+    rows.forEach(r=>{
+
+        body.innerHTML+=buildLoanTransactionRow(r);
+
+    });
+
+}
+
+
+
+
+
+
+function loadBankTransactionTable(rows){
+
+    let body=document.getElementById("bank_transactions_body");
+
+    body.innerHTML="";
+
+
+
+    document.getElementById("bank_transactions_count").innerHTML=rows.length;
+
+    document.getElementById("total_bank_transactions").innerHTML=rows.length;
+
+
+
+    rows.forEach(r=>{
+
+        body.innerHTML+=buildBankTransactionRow(r);
+
+    });
+
+}
+
+
+
+
+
+
+function loadLoanMasterTable(rows){
+
+    let body=document.getElementById("loan_master_body");
+
+    body.innerHTML="";
+
+
+
+    document.getElementById("loan_master_count").innerHTML=rows.length;
+
+    document.getElementById("total_loans").innerHTML=rows.length;
+
+
+
+    rows.forEach(r=>{
+
+        body.innerHTML+=buildLoanMasterRow(r);
+
+    });
+
+}
+
+</script>
+<script>
+
+/* ===========================================
+   SAVE TRANSACTIONS
+=========================================== */
+
+document.addEventListener("click",async function(e){
+
+    if(e.target.closest(".btn-save") && e.target.closest(".btn-save").classList.contains("loan-save")==false
+        && e.target.closest(".btn-save").classList.contains("bank-save")==false
+        && e.target.closest(".btn-save").classList.contains("loan-master-save")==false){
+
+        let tr=e.target.closest("tr");
+
+        let data={
+
+            id:tr.querySelector("td:nth-child(1) input").value,
+
+            trans_type:tr.querySelector(".trans_type").value,
+
+            amount:tr.querySelector(".amount").value,
+
+            trans_date:tr.querySelector(".trans_date").value,
+
+            remark:tr.querySelector(".remark").value,
+
+            source:tr.querySelector(".source").value,
+
+            voucher_no:tr.querySelector(".voucher_no").value,
+
+            bank_name:tr.querySelector(".bank_name").value,
+
+            bank_id:tr.querySelector(".bank_id").value,
+
+            cheque_no:tr.querySelector(".cheque_no").value,
+
+            dd_no:tr.querySelector(".dd_no").value,
+
+            issue_date:tr.querySelector(".issue_date").value,
+
+            gl_head:tr.querySelector(".gl_head").value
+
+        };
+
+
+
+        let r=await fetch("/update_transaction",{
+
+            method:"POST",
+
+            headers:{
+
+                "Content-Type":"application/json"
+
+            },
+
+            body:JSON.stringify(data)
+
+        });
+
+
+
+        let res=await r.json();
+
+        alert(res.message);
+
+    }
+
+});
+
+
+
+
+
+/* ===========================================
+   SAVE LOAN TRANSACTIONS
+=========================================== */
+
+document.addEventListener("click",async function(e){
+
+    if(!e.target.closest(".loan-save")) return;
+
+    let tr=e.target.closest("tr");
+
+
+
+    let data={
+
+        id:tr.querySelector("td:nth-child(1) input").value,
+
+        account_no:tr.querySelector(".account_no").value,
+
+        account_type:tr.querySelector(".account_type").value,
+
+        trans_type:tr.querySelector(".trans_type").value,
+
+        amount:tr.querySelector(".amount").value,
+
+        trans_date:tr.querySelector(".trans_date").value,
+
+        remark:tr.querySelector(".remark").value,
+
+        gl_head:tr.querySelector(".gl_head").value,
+
+        voucher_no:tr.querySelector(".voucher_no").value,
+
+        bank_name:tr.querySelector(".bank_name").value,
+
+        bank_id:tr.querySelector(".bank_id").value
+
+    };
+
+
+
+    let r=await fetch("/update_loan_transaction",{
+
+        method:"POST",
+
+        headers:{
+
+            "Content-Type":"application/json"
+
+        },
+
+        body:JSON.stringify(data)
+
+    });
+
+
+
+    let res=await r.json();
+
+    alert(res.message);
+
+});
+
+
+
+
+
+/* ===========================================
+   SAVE BANK TRANSACTIONS
+=========================================== */
+
+document.addEventListener("click",async function(e){
+
+    if(!e.target.closest(".bank-save")) return;
+
+    let tr=e.target.closest("tr");
+
+
+
+    let data={
+
+        id:tr.querySelector("td:nth-child(1) input").value,
+
+        bank_name:tr.querySelector(".bank_name").value,
+
+        trans_type:tr.querySelector(".trans_type").value,
+
+        amount:tr.querySelector(".amount").value,
+
+        trans_date:tr.querySelector(".trans_date").value,
+
+        remark:tr.querySelector(".remark").value,
+
+        voucher_no:tr.querySelector(".voucher_no").value,
+
+        bank_id:tr.querySelector(".bank_id").value,
+
+        created_by:tr.querySelector(".created_by").value
+
+    };
+
+
+
+    let r=await fetch("/update_bank_transaction",{
+
+        method:"POST",
+
+        headers:{
+
+            "Content-Type":"application/json"
+
+        },
+
+        body:JSON.stringify(data)
+
+    });
+
+
+
+    let res=await r.json();
+
+    alert(res.message);
+
+});
+
+
+
+
+
+
+/* ===========================================
+   SAVE LOAN MASTER
+=========================================== */
+
+document.addEventListener("click",async function(e){
+
+    if(!e.target.closest(".loan-master-save")) return;
+
+    let tr=e.target.closest("tr");
+
+
+
+    let data={
+
+        id:tr.querySelector("td:nth-child(1) input").value,
+
+        member_name:tr.querySelector(".member_name").value,
+
+        loan_head:tr.querySelector(".loan_head").value,
+
+        principal:tr.querySelector(".principal").value,
+
+        interest_rate:tr.querySelector(".interest_rate").value,
+
+        tenure_months:tr.querySelector(".tenure").value,
+
+        emi:tr.querySelector(".emi").value,
+
+        outstanding_principal:tr.querySelector(".outstanding").value,
+
+        status:tr.querySelector(".status").value,
+
+        disbursed_date:tr.querySelector(".disbursed_date").value,
+
+        created_on:tr.querySelector(".created_on").value,
+
+        voucher_no:tr.querySelector(".voucher_no").value,
+
+        bank_name:tr.querySelector(".bank_name").value,
+
+        bank_id:tr.querySelector(".bank_id").value
+
+    };
+
+
+
+    let r=await fetch("/update_loan",{
+
+        method:"POST",
+
+        headers:{
+
+            "Content-Type":"application/json"
+
+        },
+
+        body:JSON.stringify(data)
+
+    });
+
+
+
+    let res=await r.json();
+
+    alert(res.message);
+
+});
+
+</script>
+</body>
+</html>
+{% endblock %}
