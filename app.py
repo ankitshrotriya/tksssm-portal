@@ -58,9 +58,17 @@ DB_USER = "postgres"
 DB_PASS = "root"
 
 
+import os
+import psycopg2
+
 def get_db():
     return psycopg2.connect(
-        host=localhost, database=postgres, user=postgres, password=root
+        host=os.environ["localhost"],
+        port=os.environ.get("DB_PORT", "5432"),
+        database=os.environ["postgres"],
+        user=os.environ["postgres"],
+        password=os.environ["root"],
+        
     )
 
 
