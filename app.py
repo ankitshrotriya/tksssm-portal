@@ -52,10 +52,12 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # --- Database Setup ---
-DB_HOST = "localhost"
-DB_NAME = "postgres"
-DB_USER = "postgres"
-DB_PASS = "root"
+DB_HOST=aws-1-ap-northeast-2.pooler.supabase.com
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=postgres.cncbzdueqfmgqcjmktlk
+DB_PASS=Mahakal2202
+DB_SSLMODE=require
 
 
 import os
@@ -63,12 +65,12 @@ import psycopg2
 
 def get_db():
     return psycopg2.connect(
-        host=os.environ["localhost"],
-        port=os.environ.get("DB_PORT", "5432"),
-        database=os.environ["postgres"],
-        user=os.environ["postgres"],
-        password=os.environ["root"],
-        
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS"),
+        sslmode=os.getenv("DB_SSLMODE", "require")
     )
 
 
