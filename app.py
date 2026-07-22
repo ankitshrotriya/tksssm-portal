@@ -58,11 +58,8 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 import os
 import psycopg2
 
-import os
-import psycopg2
-
 def get_db():
-    return psycopg2.connect(os.environ["postgresql://postgres.cncbzdueqfmgqcjmktlk:Mahakal2202@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require"])
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
 # ✅ Function to generate sequential account numbers
