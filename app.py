@@ -60,7 +60,7 @@ DB_PASS = "root"
 
 def get_db():
     return psycopg2.connect(
-        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
+        host=localhost, database=postgres, user=postgres, password=root
     )
 
 
