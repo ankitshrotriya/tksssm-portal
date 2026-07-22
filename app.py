@@ -53,7 +53,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # --- Database Setup ---
 DB_HOST = "localhost"
-DB_NAME = "tksssm"
+DB_NAME = "postgres"
 DB_USER = "postgres"
 DB_PASS = "root"
 
